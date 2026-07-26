@@ -26,7 +26,6 @@ export function useMermaidToPngConversion({ outputRef }) {
     setError(null);
     setResult(null);
 
-    let objectUrl = null;
     let resultObjectUrl = null;
 
     try {
@@ -94,8 +93,8 @@ export function useMermaidToPngConversion({ outputRef }) {
 
       // Step 4: Create object URL
       // Re-applying the blob logic since I accidentally deleted it when investigating the taint issue.
-      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-      objectUrl = URL.createObjectURL(svgBlob);
+      const base64Svg = btoa(unescape(encodeURIComponent(svg)));
+      const dataUri = 'data:image/svg+xml;base64,' + base64Svg;
 
       // Step 5: Load Image and wait for fonts
       const img = new Image();
@@ -105,7 +104,7 @@ export function useMermaidToPngConversion({ outputRef }) {
         img.onerror = () => reject(new Error('Failed to load SVG into image.'));
       });
 
-      img.src = objectUrl;
+      img.src = dataUri;
       await imageLoadPromise;
 
       const fontReadinessPromise = (async () => {
@@ -127,10 +126,6 @@ export function useMermaidToPngConversion({ outputRef }) {
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Failed to get canvas context.');
       ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
-
-      // Step 8: Revoke SVG object URL
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
 
       // Step 7: Create PNG blob
       const pngBlob = await new Promise((resolve, reject) => {
@@ -156,9 +151,6 @@ export function useMermaidToPngConversion({ outputRef }) {
         setError(err.message || 'An error occurred during conversion.');
       }
     } finally {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
       if (myRequestId === latestRequestIdRef.current) {
         setLoading(false);
       }
