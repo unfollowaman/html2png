@@ -29,13 +29,52 @@ export function useMermaidToPngConversion({ outputRef }) {
     let resultObjectUrl = null;
 
     try {
-      // Step 1: Dynamic import and initialize
+      // Step 1: Wait for custom fonts to load (Arya, Playfair Display)
+      const waitForCustomFonts = async (timeoutMs = 5000) => {
+        if (!document.fonts) return;
+
+        const fontPromise = (async () => {
+          // First wait for general document.fonts.ready
+          if (document.fonts.ready) {
+            await document.fonts.ready;
+          }
+
+          // Specifically load/check each weight (400 and 700) for Arya and Playfair Display
+          const fontSpecs = [
+            '400 12px "Arya"',
+            '700 12px "Arya"',
+            '400 12px "Playfair Display"',
+            '700 12px "Playfair Display"'
+          ];
+
+          const loadPromises = fontSpecs.map(async (spec) => {
+            try {
+              if (!document.fonts.check(spec)) {
+                await document.fonts.load(spec);
+              }
+            } catch (e) {
+              // Ignore font load errors for specific specimens
+            }
+          });
+
+          await Promise.all(loadPromises);
+        })();
+
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, timeoutMs));
+        await Promise.race([fontPromise, timeoutPromise]);
+      };
+
+      await waitForCustomFonts();
+
+      if (myRequestId !== latestRequestIdRef.current) return;
+
+      // Step 2: Dynamic import and initialize
       const mermaidModule = await import('mermaid');
       const mermaid = mermaidModule.default || mermaidModule;
       // Initialize with htmlLabels: false to prevent Canvas tainting from <foreignObject> tags on Chrome.
       mermaid.initialize({ startOnLoad: false, htmlLabels: true, securityLevel: 'loose' });
 
-      // Step 2: Render SVG
+      // Step 3: Render SVG
       const uniqueId = 'mermaid-' + crypto.randomUUID();
       let svg;
       try {
@@ -47,7 +86,7 @@ export function useMermaidToPngConversion({ outputRef }) {
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
-      // Step 3: Parse SVG string
+      // Step 4: Parse SVG string
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
       const svgElement = svgDoc.documentElement;

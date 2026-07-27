@@ -1,5 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap');
 
+@font-face {
+  font-family: 'Arya';
+  src: url('/render-flow/fonts/arya/Arya-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Arya';
+  src: url('/render-flow/fonts/arya/Arya-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/render-flow/fonts/playfair-display/PlayfairDisplay-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/render-flow/fonts/playfair-display/PlayfairDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -108,6 +140,14 @@ button,
 a {
   color: var(--primary);
   text-decoration: none;
+}
+
+.hi {
+  font-family: 'Arya', sans-serif;
+}
+
+.en {
+  font-family: 'Playfair Display', serif;
 }
 
 /* Scrollbar */
