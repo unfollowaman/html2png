@@ -1,5 +1,107 @@
 import { useState, useCallback, useRef } from 'react';
 
+let cachedStyleString = null;
+let fontLoadingPromise = null;
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  const chunk = 16384; // 16KB chunks to avoid stack overflow
+  for (let i = 0; i < len; i += chunk) {
+    const sub = bytes.subarray(i, Math.min(i + chunk, len));
+    binary += String.fromCharCode.apply(null, sub);
+  }
+  return btoa(binary);
+}
+
+async function loadFontsAndBuildStyleString() {
+  if (cachedStyleString) {
+    console.log("useMermaidToPngConversion: Reusing cached style string");
+    return cachedStyleString;
+  }
+  if (fontLoadingPromise) {
+    console.log("useMermaidToPngConversion: Reusing active font loading promise");
+    return fontLoadingPromise;
+  }
+
+  console.log("useMermaidToPngConversion: Fetching and building style string for the first time");
+
+  fontLoadingPromise = (async () => {
+    try {
+      const base = import.meta.env.BASE_URL || '/';
+      const cleanBase = base.endsWith('/') ? base : base + '/';
+
+      const fontsToFetch = [
+        {
+          name: 'Arya',
+          weight: 400,
+          url: cleanBase + 'fonts/arya/Arya-Regular.woff2',
+        },
+        {
+          name: 'Arya',
+          weight: 700,
+          url: cleanBase + 'fonts/arya/Arya-Bold.woff2',
+        },
+        {
+          name: 'Playfair Display',
+          weight: 400,
+          url: cleanBase + 'fonts/playfair-display/PlayfairDisplay-Regular.woff2',
+        },
+        {
+          name: 'Playfair Display',
+          weight: 700,
+          url: cleanBase + 'fonts/playfair-display/PlayfairDisplay-Bold.woff2',
+        },
+      ];
+
+      const fetchPromises = fontsToFetch.map(async (font) => {
+        const response = await fetch(font.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch font from ${font.url}`);
+        }
+        const buffer = await response.arrayBuffer();
+        const base64 = arrayBufferToBase64(buffer);
+        return {
+          ...font,
+          base64,
+        };
+      });
+
+      const loadedFonts = await Promise.all(fetchPromises);
+
+      let styleString = '';
+      loadedFonts.forEach((font) => {
+        styleString += `
+@font-face {
+  font-family: '${font.name}';
+  src: url('data:font/woff2;base64,${font.base64}') format('woff2');
+  font-weight: ${font.weight};
+  font-style: normal;
+}
+`;
+      });
+
+      styleString += `
+.hi {
+  font-family: 'Arya', sans-serif;
+}
+.en {
+  font-family: 'Playfair Display', serif;
+}
+`;
+
+      cachedStyleString = styleString;
+      return cachedStyleString;
+    } catch (err) {
+      fontLoadingPromise = null;
+      throw err;
+    }
+  })();
+
+  return fontLoadingPromise;
+}
+
 export function useMermaidToPngConversion({ outputRef }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -68,6 +170,10 @@ export function useMermaidToPngConversion({ outputRef }) {
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
+      const embeddedStyleString = await loadFontsAndBuildStyleString();
+
+      if (myRequestId !== latestRequestIdRef.current) return;
+
       // Step 2: Dynamic import and initialize
       const mermaidModule = await import('mermaid');
       const mermaid = mermaidModule.default || mermaidModule;
@@ -90,6 +196,11 @@ export function useMermaidToPngConversion({ outputRef }) {
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
       const svgElement = svgDoc.documentElement;
+
+      // Inject style element as the first child of <svg>
+      const styleElement = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleElement.textContent = embeddedStyleString;
+      svgElement.insertBefore(styleElement, svgElement.firstChild);
 
       // Chrome taints canvases when drawing SVGs containing <foreignObject> loaded via ObjectURLs.
       // Mermaid uses <foreignObject> for HTML labels by default.
@@ -130,9 +241,13 @@ export function useMermaidToPngConversion({ outputRef }) {
         throw new Error('Diagram is too large to render (exceeds maximum canvas size). Try simplifying the diagram or reducing the number of nodes.');
       }
 
+      // Serialize the updated svgDoc back to string
+      const serializer = new XMLSerializer();
+      const updatedSvgString = serializer.serializeToString(svgDoc);
+
       // Step 4: Create object URL
       // Re-applying the blob logic since I accidentally deleted it when investigating the taint issue.
-      const base64Svg = btoa(unescape(encodeURIComponent(svg)));
+      const base64Svg = btoa(unescape(encodeURIComponent(updatedSvgString)));
       const dataUri = 'data:image/svg+xml;base64,' + base64Svg;
 
       // Step 5: Load Image and wait for fonts
