@@ -202,6 +202,18 @@ export function useMermaidToPngConversion({ outputRef }) {
       styleElement.textContent = embeddedStyleString;
       svgElement.insertBefore(styleElement, svgElement.firstChild);
 
+      // Apply padding-right adjustment to <foreignObject> children containing italic elements <i>
+      const foreignObjects = svgDoc.querySelectorAll('foreignObject');
+      foreignObjects.forEach((fo) => {
+        if (fo.querySelector('i')) {
+          const firstDiv = fo.querySelector('div');
+          if (firstDiv) {
+            const currentStyle = firstDiv.getAttribute('style') || '';
+            firstDiv.setAttribute('style', currentStyle + (currentStyle.endsWith(';') ? '' : ';') + ' padding-right: 8px !important;');
+          }
+        }
+      });
+
       // Chrome taints canvases when drawing SVGs containing <foreignObject> loaded via ObjectURLs.
       // Mermaid uses <foreignObject> for HTML labels by default.
       // Stripping them out prevents the taint, but removes label text.
