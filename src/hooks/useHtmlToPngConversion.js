@@ -22,6 +22,8 @@ function extractDimensions(html) {
 }
 
 export async function waitForFontsAndImages(doc, timeoutMs = 5000) {
+  let observer;
+
   const readinessPromise = (async () => {
     const promises = []
 
@@ -44,12 +46,37 @@ export async function waitForFontsAndImages(doc, timeoutMs = 5000) {
     }
 
     await Promise.all(promises)
+
+    // Mutation observer for post-paint DOM mutations
+    await new Promise((resolve) => {
+      let timer;
+      const resetTimer = () => {
+        clearTimeout(timer);
+        timer = setTimeout(resolve, 400);
+      };
+
+      observer = new MutationObserver(() => {
+        resetTimer();
+      });
+
+      observer.observe(doc.body || doc.documentElement, {
+        childList: true,
+        attributes: true,
+        subtree: true
+      });
+
+      resetTimer();
+    });
   })()
 
   // Race against timeout
   const timeoutPromise = new Promise((resolve) => setTimeout(resolve, timeoutMs))
 
   await Promise.race([readinessPromise, timeoutPromise])
+
+  if (observer) {
+    observer.disconnect();
+  }
 }
 
 export function useHtmlToPngConversion({ outputRef }) {
@@ -57,15 +84,17 @@ export function useHtmlToPngConversion({ outputRef }) {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [failedResources, setFailedResources] = useState([])
+  const [htmlWarning, setHtmlWarning] = useState(null)
   const latestRequestIdRef = useRef(0)
 
   const handleReset = useCallback(() => {
     setResult(null)
     setError(null)
     setFailedResources([])
+    setHtmlWarning(null)
   }, [])
 
-  const handleConvert = useCallback(async (htmlToConvert) => {
+  const handleConvert = useCallback(async (htmlToConvert, force = false) => {
     latestRequestIdRef.current += 1
     const myRequestId = latestRequestIdRef.current
 
@@ -79,6 +108,15 @@ export function useHtmlToPngConversion({ outputRef }) {
     setLoading(true)
     setError(null)
     setResult(null)
+    if (htmlToConvert.length > 500000 && !force) {
+      if (myRequestId === latestRequestIdRef.current) {
+        setHtmlWarning('Very large HTML may cause the browser tab to become unresponsive during conversion. Do you want to proceed?');
+        setLoading(false);
+      }
+      return;
+    }
+    setHtmlWarning(null);
+
 
     // Create a hidden iframe to render the HTML in isolation
     const iframe = document.createElement('iframe')
@@ -93,6 +131,7 @@ export function useHtmlToPngConversion({ outputRef }) {
     document.body.appendChild(iframe)
 
     try {
+      await new Promise(resolve => setTimeout(resolve, 0))
       // Inline external resources
       const { html: processedHtml, failedUrls } = await inlineResources(htmlToConvert)
 
@@ -126,6 +165,7 @@ export function useHtmlToPngConversion({ outputRef }) {
       const scrollWidth = iframe.contentDocument.documentElement.scrollWidth
       const scrollHeight = iframe.contentDocument.documentElement.scrollHeight
 
+      await new Promise(resolve => setTimeout(resolve, 0))
       const { width: explicitWidth, height: explicitHeight } = extractDimensions(htmlToConvert)
 
       const finalWidth = explicitWidth !== null ? explicitWidth : scrollWidth
@@ -140,6 +180,7 @@ export function useHtmlToPngConversion({ outputRef }) {
       iframe.style.width = finalWidth + 'px'
       iframe.style.height = finalHeight + 'px'
 
+      await new Promise(resolve => setTimeout(resolve, 0))
       // Capture with html-to-image (lazy loaded)
       const { toPng } = await import('html-to-image')
       const dataUrl = await toPng(iframe.contentDocument.body, {
@@ -176,5 +217,5 @@ export function useHtmlToPngConversion({ outputRef }) {
     }
   }, [outputRef])
 
-  return { loading, result, error, failedResources, setError, handleConvert, handleReset }
+  return { loading, result, error, failedResources, htmlWarning, setHtmlWarning, setError, handleConvert, handleReset }
 }

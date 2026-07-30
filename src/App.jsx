@@ -17,7 +17,7 @@ export default function App() {
     document.title = "HTML → PNG Converter";
   }, []);
 
-  const { loading, result, error, setError, handleConvert, handleReset } = useHtmlToPngConversion({
+  const { loading, result, error, failedResources, htmlWarning, setHtmlWarning, setError, handleConvert, handleReset } = useHtmlToPngConversion({
     outputRef,
   });
 
@@ -36,6 +36,7 @@ export default function App() {
     loading: latexLoading,
     result: latexResult,
     error: latexError,
+    parseError: latexParseError,
     setError: setLatexError,
     handleConvert: handleLatexConvert,
     handleReset: handleLatexReset
@@ -74,12 +75,16 @@ export default function App() {
             mode={mode}
             setMode={setMode}
             loading={loading}
+            failedResources={failedResources}
+            htmlWarning={htmlWarning}
+            setHtmlWarning={setHtmlWarning}
             handleConvert={handleConvert}
             setError={setError}
             mermaidLoading={mermaidLoading}
             setMermaidError={setMermaidError}
             handleMermaidConvert={handleMermaidConvert}
             latexLoading={latexLoading}
+            latexParseError={latexParseError}
             setLatexError={setLatexError}
             handleLatexConvert={handleLatexConvert}
           />

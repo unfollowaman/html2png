@@ -4,9 +4,11 @@ export function useLatexToPngConversion({ outputRef }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [parseError, setParseError] = useState(null);
   const latestRequestIdRef = useRef(0);
 
   const handleReset = useCallback(() => {
+    setParseError(null);
     setResult(null);
     setError(null);
   }, []);
@@ -25,6 +27,7 @@ export function useLatexToPngConversion({ outputRef }) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setParseError(null);
 
     let objectUrl = null;
     let resultObjectUrl = null;
@@ -56,9 +59,7 @@ export function useLatexToPngConversion({ outputRef }) {
         throw new Error("MathJax tex2svgPromise is not available. MathJax failed to load.");
       }
 
-      if (myRequestId !== latestRequestIdRef.current) return;
-
-      // Step 2: Render SVG
+      if (myRequestId !== latestRequestIdRef.current) return;      // Step 2: Render SVG
       let svgElement;
       try {
         const container = await window.MathJax.tex2svgPromise(latexString, { display: true });
@@ -66,8 +67,21 @@ export function useLatexToPngConversion({ outputRef }) {
         if (!svgElement) {
           throw new Error('Failed to find SVG element in MathJax output.');
         }
+
+        // Check for MathJax errors in the SVG
+        const errorNode = svgElement.querySelector('[data-mjx-error]') ||
+                          svgElement.querySelector('g[data-mml-node="merror"]') ||
+                          svgElement.querySelector('g[data-mml-node="mtext"][fill="red"]');
+        if (errorNode) {
+          throw new Error('Invalid LaTeX syntax.');
+        }
+
       } catch (renderError) {
-        throw new Error('Invalid LaTeX syntax.');
+        if (myRequestId === latestRequestIdRef.current) {
+          setParseError('LaTeX could not be parsed.');
+          setLoading(false);
+        }
+        return;
       }
 
       if (myRequestId !== latestRequestIdRef.current) return;
@@ -193,5 +207,5 @@ export function useLatexToPngConversion({ outputRef }) {
     }
   }, [outputRef]);
 
-  return { loading, result, error, setError, handleConvert, handleReset };
+  return { loading, result, error, parseError, setError, handleConvert, handleReset };
 }

@@ -243,12 +243,16 @@ export const InputCard = forwardRef(function InputCard({
   mode,
   setMode,
   loading,
+  failedResources,
+  htmlWarning,
+  setHtmlWarning,
   handleConvert,
   setError,
   mermaidLoading,
   setMermaidError,
   handleMermaidConvert,
   latexLoading,
+  latexParseError,
   setLatexError,
   handleLatexConvert
 }, ref) {
@@ -369,7 +373,7 @@ export const InputCard = forwardRef(function InputCard({
             <textarea
               className={styles.textarea}
               value={html}
-              onChange={(e) => { setHtml(e.target.value); setError(null); }}
+              onChange={(e) => { setHtml(e.target.value); setError(null); setHtmlWarning && setHtmlWarning(null); }}
               placeholder={`Paste your HTML here…\n\nOr drag & drop a .html file\n\n<!-- Tip: include explicit width/height on body\n     for perfect viewport sizing -->`}
               spellCheck={false}
               style={{ background: 'transparent' }}
@@ -393,6 +397,11 @@ export const InputCard = forwardRef(function InputCard({
               style={{ background: 'transparent' }}
             />
           )}
+          {mode === "latex" && latexParseError && (
+            <div style={{ color: 'red', marginTop: '8px', padding: '0 12px' }}>
+              {latexParseError}
+            </div>
+          )}
           {mode === "html" && dragOver && (
             <div className={styles.dropOverlay}>
               <span>📂 Drop .html file here</span>
@@ -400,6 +409,12 @@ export const InputCard = forwardRef(function InputCard({
           )}
         </div>
       </div>
+
+      {mode === "html" && failedResources && failedResources.length > 0 && (
+        <div style={{ color: '#ffa100', marginTop: '8px', fontSize: '14px' }}>
+          Notice: {failedResources.length} external resource{failedResources.length > 1 ? 's' : ''} failed to load (likely due to CORS).
+        </div>
+      )}
 
       {/* File upload row */}
       {mode === "html" && (
@@ -431,6 +446,20 @@ export const InputCard = forwardRef(function InputCard({
       )}
 
 
+
+      {mode === "html" && htmlWarning && (
+        <div style={{ color: '#F30A49', marginTop: '8px', fontSize: '14px', border: '1px solid #F30A49', padding: '8px', borderRadius: '4px' }}>
+          {htmlWarning}
+          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+            <button
+               onClick={() => { setHtmlWarning(null); handleConvert(html, true); }}
+               style={{ padding: '4px 8px', cursor: 'pointer' }}>Proceed anyway</button>
+            <button
+               onClick={() => setHtmlWarning(null)}
+               style={{ padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Convert button */}
       {mode === "html" ? (
