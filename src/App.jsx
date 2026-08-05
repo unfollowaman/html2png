@@ -51,6 +51,7 @@ export default function App() {
     handleReset();
     handleMermaidReset();
     handleLatexReset();
+    inputRef.current?.scrollToInput();
   };
 
   const activeLoading = mode === "html" ? loading : mode === "mermaid" ? mermaidLoading : latexLoading;
