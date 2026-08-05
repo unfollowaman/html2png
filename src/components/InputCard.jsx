@@ -261,6 +261,7 @@ export const InputCard = forwardRef(function InputCard({
   const [latex, setLatex] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const cardRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     resetHtml: () => {
@@ -271,6 +272,9 @@ export const InputCard = forwardRef(function InputCard({
     },
     resetLatex: () => {
       setLatex("");
+    },
+    scrollToInput: () => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }));
 
@@ -311,7 +315,7 @@ export const InputCard = forwardRef(function InputCard({
   };
 
   return (
-    <div className={`${styles.card} neu-card`}>
+    <div className={`${styles.card} neu-card`} ref={cardRef}>
       {/* Mode Toggle */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
         <button
