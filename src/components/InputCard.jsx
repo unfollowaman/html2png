@@ -239,57 +239,28 @@ graph TD
 
 const SAMPLE_LATEX = "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}";
 
-export const InputCard = forwardRef(function InputCard({
-  mode,
-  setMode,
+const HtmlWorkspace = forwardRef(function HtmlWorkspace({
+  isVisible,
   loading,
   failedResources,
   htmlWarning,
   setHtmlWarning,
   handleConvert,
-  setError,
-  mermaidLoading,
-  setMermaidError,
-  handleMermaidConvert,
-  latexLoading,
-  latexParseError,
-  setLatexError,
-  handleLatexConvert
+  setError
 }, ref) {
   const [html, setHtml] = useState("");
-  const [mermaid, setMermaid] = useState("");
-  const [latex, setLatex] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
-  const cardRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     resetHtml: () => {
       setHtml("");
     },
-    resetMermaid: () => {
-      setMermaid("");
-    },
-    resetLatex: () => {
-      setLatex("");
-    },
-    scrollToInput: () => {
-      cardRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }));
-
-  const loadSample = () => {
-    if (mode === "html") {
+    loadSample: () => {
       setHtml(SAMPLE_HTML);
       setError(null);
-    } else if (mode === "mermaid") {
-      setMermaid(SAMPLE_MERMAID);
-      setMermaidError(null);
-    } else {
-      setLatex(SAMPLE_LATEX);
-      setLatexError(null);
     }
-  };
+  }));
 
   const handleFileUpload = (file) => {
     if (!file) return;
@@ -308,9 +279,264 @@ export const InputCard = forwardRef(function InputCard({
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    handleFileUpload(file);
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <>
+      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
+        <div
+          className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
+          <textarea
+            aria-label="Input HTML"
+            className={styles.textarea}
+            value={html}
+            onChange={(e) => { setHtml(e.target.value); setError(null); setHtmlWarning && setHtmlWarning(null); }}
+            placeholder={`Paste your HTML here…\n\nOr drag & drop a .html file\n\n<!-- Tip: include explicit width/height on body\n     for perfect viewport sizing -->`}
+            spellCheck={false}
+            style={{ background: 'transparent' }}
+          />
+          {dragOver && (
+            <div className={styles.dropOverlay}>
+              <span>📂 Drop .html file here</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {failedResources && failedResources.length > 0 && (
+        <div style={{ color: '#ffa100', marginTop: '8px', fontSize: '14px' }}>
+          Notice: {failedResources.length} external resource{failedResources.length > 1 ? 's' : ''} failed to load (likely due to CORS).
+        </div>
+      )}
+
+      <div className={styles.uploadRow}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".html,text/html"
+          style={{ display: "none" }}
+          onChange={(e) => handleFileUpload(e.target.files?.[0])}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            className={`${styles.uploadBtn} neu-raised`}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <span>📁</span> Upload .html file
+          </button>
+          {html && (
+            <span className={`${styles.charCount} neu-recessed`}>
+              {html.length.toLocaleString()} chars
+            </span>
+          )}
+        </div>
+        <span className={styles.uploadHint}>
+          or drag & drop onto the editor above
+        </span>
+      </div>
+
+      {htmlWarning && (
+        <div style={{ color: '#F30A49', marginTop: '8px', fontSize: '14px', border: '1px solid #F30A49', padding: '8px', borderRadius: '4px' }}>
+          {htmlWarning}
+          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+            <button
+               onClick={() => { setHtmlWarning(null); handleConvert(html, true); }}
+               style={{ padding: '4px 8px', cursor: 'pointer' }}>Proceed anyway</button>
+            <button
+               onClick={() => setHtmlWarning(null)}
+               style={{ padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <button
+        className={`${styles.convertBtn} ${loading ? styles.convertBtnLoading : ""}`}
+        onClick={() => handleConvert(html)}
+        disabled={loading || !html.trim()}
+      >
+        {loading ? (
+          <>
+            <Mario />
+            Converting…
+          </>
+        ) : (
+          <>
+            Convert to PNG
+          </>
+        )}
+      </button>
+    </>
+  );
+});
+
+const MermaidWorkspace = forwardRef(function MermaidWorkspace({
+  isVisible,
+  mermaidLoading,
+  setMermaidError,
+  handleMermaidConvert
+}, ref) {
+  const [mermaid, setMermaid] = useState("");
+
+  useImperativeHandle(ref, () => ({
+    resetMermaid: () => {
+      setMermaid("");
+    },
+    loadSample: () => {
+      setMermaid(SAMPLE_MERMAID);
+      setMermaidError(null);
+    }
+  }));
+
+  if (!isVisible) return null;
+
+  return (
+    <>
+      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
+        <div className={styles.dropZone}>
+          <textarea
+            aria-label="Input Mermaid"
+            className={styles.textarea}
+            value={mermaid}
+            onChange={(e) => { setMermaid(e.target.value); setMermaidError(null); }}
+            placeholder={`Paste your Mermaid code here…`}
+            spellCheck={false}
+            style={{ background: 'transparent' }}
+          />
+        </div>
+      </div>
+      <button
+        className={`${styles.convertBtn} ${mermaidLoading ? styles.convertBtnLoading : ""}`}
+        onClick={() => handleMermaidConvert(mermaid)}
+        disabled={mermaidLoading || !mermaid.trim()}
+      >
+        {mermaidLoading ? (
+          <>
+            <Mario />
+            Converting…
+          </>
+        ) : (
+          <>
+            Convert to PNG
+          </>
+        )}
+      </button>
+    </>
+  );
+});
+
+const LatexWorkspace = forwardRef(function LatexWorkspace({
+  isVisible,
+  latexLoading,
+  latexParseError,
+  setLatexError,
+  handleLatexConvert
+}, ref) {
+  const [latex, setLatex] = useState("");
+
+  useImperativeHandle(ref, () => ({
+    resetLatex: () => {
+      setLatex("");
+    },
+    loadSample: () => {
+      setLatex(SAMPLE_LATEX);
+      setLatexError(null);
+    }
+  }));
+
+  if (!isVisible) return null;
+
+  return (
+    <>
+      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
+        <div className={styles.dropZone}>
+          <textarea
+            aria-label="Input LaTeX"
+            className={styles.textarea}
+            value={latex}
+            onChange={(e) => { setLatex(e.target.value); setLatexError(null); }}
+            placeholder={`Paste your LaTeX math code here…`}
+            spellCheck={false}
+            style={{ background: 'transparent' }}
+          />
+          {latexParseError && (
+            <div style={{ color: 'red', marginTop: '8px', padding: '0 12px' }}>
+              {latexParseError}
+            </div>
+          )}
+        </div>
+      </div>
+      <button
+        className={`${styles.convertBtn} ${latexLoading ? styles.convertBtnLoading : ""}`}
+        onClick={() => handleLatexConvert(latex)}
+        disabled={latexLoading || !latex.trim()}
+      >
+        {latexLoading ? (
+          <>
+            <Mario />
+            Converting…
+          </>
+        ) : (
+          <>
+            Convert to PNG
+          </>
+        )}
+      </button>
+    </>
+  );
+});
+
+export const InputCard = forwardRef(function InputCard({
+  mode,
+  setMode,
+  loading,
+  failedResources,
+  htmlWarning,
+  setHtmlWarning,
+  handleConvert,
+  setError,
+  mermaidLoading,
+  setMermaidError,
+  handleMermaidConvert,
+  latexLoading,
+  latexParseError,
+  setLatexError,
+  handleLatexConvert
+}, ref) {
+  const htmlRef = useRef(null);
+  const mermaidRef = useRef(null);
+  const latexRef = useRef(null);
+  const cardRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    resetHtml: () => {
+      htmlRef.current?.resetHtml();
+    },
+    resetMermaid: () => {
+      mermaidRef.current?.resetMermaid();
+    },
+    resetLatex: () => {
+      latexRef.current?.resetLatex();
+    },
+    scrollToInput: () => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }));
+
+  const loadSample = () => {
     if (mode === "html") {
-      const file = e.dataTransfer.files[0];
-      handleFileUpload(file);
+      htmlRef.current?.loadSample();
+    } else if (mode === "mermaid") {
+      mermaidRef.current?.loadSample();
+    } else {
+      latexRef.current?.loadSample();
     }
   };
 
@@ -365,162 +591,32 @@ export const InputCard = forwardRef(function InputCard({
         </button>
       </div>
 
-      {/* Textarea */}
-      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
-        <div
-          className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-        >
-          {mode === "html" ? (
-            <textarea
-              aria-label="Input HTML"
-              className={styles.textarea}
-              value={html}
-              onChange={(e) => { setHtml(e.target.value); setError(null); setHtmlWarning && setHtmlWarning(null); }}
-              placeholder={`Paste your HTML here…\n\nOr drag & drop a .html file\n\n<!-- Tip: include explicit width/height on body\n     for perfect viewport sizing -->`}
-              spellCheck={false}
-              style={{ background: 'transparent' }}
-            />
-          ) : mode === "mermaid" ? (
-            <textarea
-              aria-label="Input Mermaid"
-              className={styles.textarea}
-              value={mermaid}
-              onChange={(e) => { setMermaid(e.target.value); setMermaidError(null); }}
-              placeholder={`Paste your Mermaid code here…`}
-              spellCheck={false}
-              style={{ background: 'transparent' }}
-            />
-          ) : (
-            <textarea
-              aria-label="Input LaTeX"
-              className={styles.textarea}
-              value={latex}
-              onChange={(e) => { setLatex(e.target.value); setLatexError(null); }}
-              placeholder={`Paste your LaTeX math code here…`}
-              spellCheck={false}
-              style={{ background: 'transparent' }}
-            />
-          )}
-          {mode === "latex" && latexParseError && (
-            <div style={{ color: 'red', marginTop: '8px', padding: '0 12px' }}>
-              {latexParseError}
-            </div>
-          )}
-          {mode === "html" && dragOver && (
-            <div className={styles.dropOverlay}>
-              <span>📂 Drop .html file here</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {mode === "html" && failedResources && failedResources.length > 0 && (
-        <div style={{ color: '#ffa100', marginTop: '8px', fontSize: '14px' }}>
-          Notice: {failedResources.length} external resource{failedResources.length > 1 ? 's' : ''} failed to load (likely due to CORS).
-        </div>
-      )}
-
-      {/* File upload row */}
-      {mode === "html" && (
-        <div className={styles.uploadRow}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".html,text/html"
-            style={{ display: "none" }}
-            onChange={(e) => handleFileUpload(e.target.files?.[0])}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <button
-              className={`${styles.uploadBtn} neu-raised`}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <span>📁</span> Upload .html file
-            </button>
-            {html && (
-              <span className={`${styles.charCount} neu-recessed`}>
-                {html.length.toLocaleString()} chars
-              </span>
-            )}
-          </div>
-          <span className={styles.uploadHint}>
-            or drag & drop onto the editor above
-          </span>
-        </div>
-      )}
-
-
-
-      {mode === "html" && htmlWarning && (
-        <div style={{ color: '#F30A49', marginTop: '8px', fontSize: '14px', border: '1px solid #F30A49', padding: '8px', borderRadius: '4px' }}>
-          {htmlWarning}
-          <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-            <button
-               onClick={() => { setHtmlWarning(null); handleConvert(html, true); }}
-               style={{ padding: '4px 8px', cursor: 'pointer' }}>Proceed anyway</button>
-            <button
-               onClick={() => setHtmlWarning(null)}
-               style={{ padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {/* Convert button */}
-      {mode === "html" ? (
-        <button
-          className={`${styles.convertBtn} ${loading ? styles.convertBtnLoading : ""}`}
-          onClick={() => handleConvert(html)}
-          disabled={loading || !html.trim()}
-        >
-          {loading ? (
-            <>
-              <Mario />
-              Converting…
-            </>
-          ) : (
-            <>
-              Convert to PNG
-            </>
-          )}
-        </button>
-      ) : mode === "mermaid" ? (
-        <button
-          className={`${styles.convertBtn} ${mermaidLoading ? styles.convertBtnLoading : ""}`}
-          onClick={() => handleMermaidConvert(mermaid)}
-          disabled={mermaidLoading || !mermaid.trim()}
-        >
-          {mermaidLoading ? (
-            <>
-              <Mario />
-              Converting…
-            </>
-          ) : (
-            <>
-              Convert to PNG
-            </>
-          )}
-        </button>
-      ) : (
-        <button
-          className={`${styles.convertBtn} ${latexLoading ? styles.convertBtnLoading : ""}`}
-          onClick={() => handleLatexConvert(latex)}
-          disabled={latexLoading || !latex.trim()}
-        >
-          {latexLoading ? (
-            <>
-              <Mario />
-              Converting…
-            </>
-          ) : (
-            <>
-              Convert to PNG
-            </>
-          )}
-        </button>
-      )}
+      {/* Workspaces */}
+      <HtmlWorkspace
+        ref={htmlRef}
+        isVisible={mode === "html"}
+        loading={loading}
+        failedResources={failedResources}
+        htmlWarning={htmlWarning}
+        setHtmlWarning={setHtmlWarning}
+        handleConvert={handleConvert}
+        setError={setError}
+      />
+      <MermaidWorkspace
+        ref={mermaidRef}
+        isVisible={mode === "mermaid"}
+        mermaidLoading={mermaidLoading}
+        setMermaidError={setMermaidError}
+        handleMermaidConvert={handleMermaidConvert}
+      />
+      <LatexWorkspace
+        ref={latexRef}
+        isVisible={mode === "latex"}
+        latexLoading={latexLoading}
+        latexParseError={latexParseError}
+        setLatexError={setLatexError}
+        handleLatexConvert={handleLatexConvert}
+      />
     </div>
   );
 })
