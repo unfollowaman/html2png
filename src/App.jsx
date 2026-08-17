@@ -68,7 +68,7 @@ export default function App() {
 
       {/* ── MAIN ───────────────────────────────────── */}
       <main className={styles.main}>
-        <div className={styles.container}>
+        <section className={styles.container}>
 
           {/* ── INPUT CARD ─────────────────────────── */}
           <InputCard
@@ -95,7 +95,7 @@ export default function App() {
 
           {/* ── OUTPUT ─────────────────────────────── */}
           {activeResult && <OutputCard result={activeResult} ref={outputRef} onReset={onReset} />}
-        </div>
+        </section>
       </main>
 
       {/* ── FOOTER ─────────────────────────────────── */}
