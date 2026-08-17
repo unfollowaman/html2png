@@ -17,15 +17,12 @@ function arrayBufferToBase64(buffer) {
 
 async function loadFontsAndBuildStyleString() {
   if (cachedStyleString) {
-    console.log("useMermaidToPngConversion: Reusing cached style string");
     return cachedStyleString;
   }
   if (fontLoadingPromise) {
-    console.log("useMermaidToPngConversion: Reusing active font loading promise");
     return fontLoadingPromise;
   }
 
-  console.log("useMermaidToPngConversion: Fetching and building style string for the first time");
 
   fontLoadingPromise = (async () => {
     try {
