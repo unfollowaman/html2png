@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { renderImageToPngBlobUrl } from '../utils/canvasToBlob.js';
 
 let cachedStyleString = null;
 let fontLoadingPromise = null;
@@ -242,14 +243,6 @@ export function useMermaidToPngConversion({ outputRef }) {
         throw new Error('Unable to determine dimensions from Mermaid SVG.');
       }
 
-      const DPI_SCALE = 2;
-      const finalWidth = intrinsicWidth * DPI_SCALE;
-      const finalHeight = intrinsicHeight * DPI_SCALE;
-
-      if (finalWidth * finalHeight > 200000000) {
-        throw new Error('Diagram is too large to render (exceeds maximum canvas size). Try simplifying the diagram or reducing the number of nodes.');
-      }
-
       // Serialize the updated svgDoc back to string
       const serializer = new XMLSerializer();
       const updatedSvgString = serializer.serializeToString(svgDoc);
@@ -280,28 +273,17 @@ export function useMermaidToPngConversion({ outputRef }) {
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
-      // Step 6: Create canvas and draw
-      const canvas = document.createElement('canvas');
+      // Step 6: Convert to blob and object URL
+      const renderResult = await renderImageToPngBlobUrl(
+        img,
+        intrinsicWidth,
+        intrinsicHeight,
+        'Diagram is too large to render (exceeds maximum canvas size). Try simplifying the diagram or reducing the number of nodes.'
+      );
 
-      canvas.width = finalWidth;
-      canvas.height = finalHeight;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Failed to get canvas context.');
-      ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
-
-      // Step 7: Create PNG blob
-      const pngBlob = await new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create PNG blob.'));
-          }
-        }, 'image/png');
-      });
-
-      resultObjectUrl = URL.createObjectURL(pngBlob);
+      resultObjectUrl = renderResult.resultObjectUrl;
+      const finalWidth = renderResult.finalWidth;
+      const finalHeight = renderResult.finalHeight;
 
       if (myRequestId === latestRequestIdRef.current) {
         setResult({ image: resultObjectUrl, width: finalWidth, height: finalHeight });
