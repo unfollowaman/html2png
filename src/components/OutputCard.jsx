@@ -2,8 +2,15 @@ import { forwardRef, useState } from "react";
 import styles from "../styles/Home.module.css";
 import downloadIcon from "../assets/download-icon.png";
 
-export const OutputCard = forwardRef(({ result, onReset }, ref) => {
+export const OutputCard = forwardRef(({ result, onReset, mode }, ref) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const baseAltText =
+    mode === "mermaid"
+      ? "Rendered Mermaid diagram"
+      : mode === "latex"
+      ? "Rendered LaTeX equation"
+      : "Rendered HTML output";
 
   const handleDownload = () => {
     if (!result?.image) return;
@@ -29,7 +36,7 @@ export const OutputCard = forwardRef(({ result, onReset }, ref) => {
           <div className={styles.checkerBg}>
           <img
             src={result.image}
-            alt="Rendered HTML"
+            alt={baseAltText}
             className={styles.previewImage}
             style={{ maxWidth: "100%", cursor: "pointer" }}
               onClick={() => setIsFullscreen(true)}
@@ -42,7 +49,7 @@ export const OutputCard = forwardRef(({ result, onReset }, ref) => {
         <div className={styles.fullscreenOverlay} onClick={() => setIsFullscreen(false)}>
           <img
             src={result.image}
-            alt="Rendered HTML Fullscreen"
+            alt={`${baseAltText} (fullscreen view)`}
             className={styles.fullscreenImage}
           />
         </div>
