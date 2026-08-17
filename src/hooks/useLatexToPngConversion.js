@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { renderImageToPngBlobUrl } from '../utils/canvasToBlob.js';
 
 export function useLatexToPngConversion({ outputRef }) {
   const [loading, setLoading] = useState(false);
@@ -132,14 +133,6 @@ export function useLatexToPngConversion({ outputRef }) {
       serializer = new XMLSerializer();
       const finalSvgString = serializer.serializeToString(svgElement);
 
-      const DPI_SCALE = 2; // Matches Mermaid pipeline
-      const finalWidth = intrinsicWidth * DPI_SCALE;
-      const finalHeight = intrinsicHeight * DPI_SCALE;
-
-      if (finalWidth * finalHeight > 200000000) {
-        throw new Error('Formula is too large to render (exceeds maximum canvas size). Try simplifying the expression or breaking it into smaller parts.');
-      }
-
       // Step 4: Create object URL
       const svgBlob = new Blob([finalSvgString], { type: 'image/svg+xml;charset=utf-8' });
       objectUrl = URL.createObjectURL(svgBlob);
@@ -157,35 +150,22 @@ export function useLatexToPngConversion({ outputRef }) {
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
-      // Step 6: Create canvas and draw
-      const canvas = document.createElement('canvas');
+      // Step 6: Convert to blob and object URL
+      const renderResult = await renderImageToPngBlobUrl(
+        img,
+        intrinsicWidth,
+        intrinsicHeight,
+        'Formula is too large to render (exceeds maximum canvas size). Try simplifying the expression or breaking it into smaller parts.',
+        '#ffffff'
+      );
 
-      canvas.width = finalWidth;
-      canvas.height = finalHeight;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Failed to get canvas context.');
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, finalWidth, finalHeight);
-      ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
+      resultObjectUrl = renderResult.resultObjectUrl;
+      const finalWidth = renderResult.finalWidth;
+      const finalHeight = renderResult.finalHeight;
 
       // Step 8: Revoke SVG object URL
       URL.revokeObjectURL(objectUrl);
       objectUrl = null;
-
-      // Step 7: Create PNG blob
-      const pngBlob = await new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create PNG blob.'));
-          }
-        }, 'image/png');
-      });
-
-      resultObjectUrl = URL.createObjectURL(pngBlob);
 
       if (myRequestId === latestRequestIdRef.current) {
         setResult({ image: resultObjectUrl, width: finalWidth, height: finalHeight });
