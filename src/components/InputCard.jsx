@@ -375,6 +375,7 @@ export const InputCard = forwardRef(function InputCard({
         >
           {mode === "html" ? (
             <textarea
+              aria-label="Input HTML"
               className={styles.textarea}
               value={html}
               onChange={(e) => { setHtml(e.target.value); setError(null); setHtmlWarning && setHtmlWarning(null); }}
@@ -384,6 +385,7 @@ export const InputCard = forwardRef(function InputCard({
             />
           ) : mode === "mermaid" ? (
             <textarea
+              aria-label="Input Mermaid"
               className={styles.textarea}
               value={mermaid}
               onChange={(e) => { setMermaid(e.target.value); setMermaidError(null); }}
@@ -393,6 +395,7 @@ export const InputCard = forwardRef(function InputCard({
             />
           ) : (
             <textarea
+              aria-label="Input LaTeX"
               className={styles.textarea}
               value={latex}
               onChange={(e) => { setLatex(e.target.value); setLatexError(null); }}
