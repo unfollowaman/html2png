@@ -58,22 +58,65 @@ export function useLatexToPngConversion({ outputRef }) {
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
-      // Create offscreen container
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.top = '-99999px';
-      container.style.left = '-99999px';
-      container.style.display = 'inline-block';
-      container.style.margin = '0';
-      container.style.padding = '0';
+      // Create offscreen container via isolated iframe to prevent html-to-image from
+      // traversing cross-origin stylesheets (like Google Fonts) and throwing SecurityErrors.
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.top = '-99999px';
+      iframe.style.left = '-99999px';
+      iframe.style.width = '9999px';
+      iframe.style.height = '9999px';
+      iframe.style.border = 'none';
+      iframe.style.visibility = 'hidden';
 
-      container.innerHTML = htmlContent;
-      document.body.appendChild(container);
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+        </head>
+        <body style="margin: 0; padding: 0;">
+          <div id="latex-container" style="display: inline-block; margin: 0; padding: 0;">
+            ${htmlContent}
+          </div>
+        </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      const container = iframeDoc.getElementById('latex-container');
+
+      // Copy local styles into iframe, avoiding Google Fonts
+      const loadPromises = [];
+      const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
+      styles.forEach(el => {
+        if (el.tagName.toLowerCase() === 'link' && el.href.includes('fonts.googleapis.com')) return;
+
+        const clone = el.cloneNode(true);
+        if (clone.tagName.toLowerCase() === 'link') {
+          loadPromises.push(new Promise((resolve) => {
+            clone.onload = resolve;
+            clone.onerror = resolve; // Ignore errors, just move on
+          }));
+        }
+        iframeDoc.head.appendChild(clone);
+      });
+
+      if (loadPromises.length > 0) {
+        // Wait for all stylesheet links to load, with a 2-second timeout
+        await Promise.race([
+          Promise.all(loadPromises),
+          new Promise(resolve => setTimeout(resolve, 2000))
+        ]);
+      }
 
       // Wait a tick for fonts/layout
       await new Promise(resolve => setTimeout(resolve, 0));
-      if (document.fonts && document.fonts.ready) {
-         await document.fonts.ready;
+      if (iframeDoc.fonts && iframeDoc.fonts.ready) {
+         await iframeDoc.fonts.ready;
       }
 
       const rect = container.getBoundingClientRect();
@@ -86,7 +129,7 @@ export function useLatexToPngConversion({ outputRef }) {
       }
 
       if (myRequestId !== latestRequestIdRef.current) {
-         document.body.removeChild(container);
+         document.body.removeChild(iframe);
          return;
       }
 
@@ -95,7 +138,7 @@ export function useLatexToPngConversion({ outputRef }) {
       const finalHeight = intrinsicHeight * DPI_SCALE;
 
       if (finalWidth * finalHeight > 200000000) {
-          document.body.removeChild(container);
+          document.body.removeChild(iframe);
           throw new Error('Formula is too large to render (exceeds maximum canvas size). Try simplifying the expression or breaking it into smaller parts.');
       }
 
@@ -114,7 +157,7 @@ export function useLatexToPngConversion({ outputRef }) {
               pixelRatio: DPI_SCALE
           });
       } finally {
-          document.body.removeChild(container);
+          document.body.removeChild(iframe);
       }
 
       if (!blob) {
