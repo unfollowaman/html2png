@@ -239,25 +239,57 @@ graph TD
 
 const SAMPLE_LATEX = "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}";
 
-const HtmlWorkspace = forwardRef(function HtmlWorkspace({
+const MODE_CONFIGS = {
+  html: {
+    mode: "html",
+    label: "HTML Mode",
+    cardTitle: "Input HTML",
+    ariaLabel: "Input HTML",
+    placeholder: `Paste your HTML here…\n\nOr drag & drop a .html file\n\n<!-- Tip: include explicit width/height on body\n     for perfect viewport sizing -->`,
+    sampleText: SAMPLE_HTML,
+    hasFileUpload: true
+  },
+  mermaid: {
+    mode: "mermaid",
+    label: "Mermaid Mode",
+    cardTitle: "Input Mermaid",
+    ariaLabel: "Input Mermaid",
+    placeholder: `Paste your Mermaid code here…`,
+    sampleText: SAMPLE_MERMAID,
+    hasFileUpload: false
+  },
+  latex: {
+    mode: "latex",
+    label: "LaTeX Mode",
+    cardTitle: "Input LaTeX",
+    ariaLabel: "Input LaTeX",
+    placeholder: `Paste your LaTeX math code here…`,
+    sampleText: SAMPLE_LATEX,
+    hasFileUpload: false
+  }
+};
+
+const Workspace = forwardRef(function Workspace({
+  modeConfig,
   isVisible,
   loading,
+  parseError,
   failedResources,
   htmlWarning,
   setHtmlWarning,
   handleConvert,
   setError
 }, ref) {
-  const [html, setHtml] = useState("");
+  const [value, setValue] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
-    resetHtml: () => {
-      setHtml("");
+    reset: () => {
+      setValue("");
     },
     loadSample: () => {
-      setHtml(SAMPLE_HTML);
+      setValue(modeConfig.sampleText);
       setError(null);
     }
   }));
@@ -270,7 +302,7 @@ const HtmlWorkspace = forwardRef(function HtmlWorkspace({
     }
     const reader = new FileReader();
     reader.onload = (e) => {
-      setHtml(e.target.result);
+      setValue(e.target.result);
       setError(null);
     };
     reader.readAsText(file);
@@ -279,27 +311,38 @@ const HtmlWorkspace = forwardRef(function HtmlWorkspace({
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    handleFileUpload(file);
+    if (modeConfig.hasFileUpload) {
+      const file = e.dataTransfer.files[0];
+      handleFileUpload(file);
+    }
   };
 
   if (!isVisible) return null;
 
   return (
-    <>
+    <div className={styles.workspace}>
       <div className="neu-recessed" style={{ borderRadius: '12px' }}>
         <div
           className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragOver={(e) => {
+            if (modeConfig.hasFileUpload) {
+              e.preventDefault();
+              setDragOver(true);
+            }
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
         >
           <textarea
-            aria-label="Input HTML"
+            aria-label={modeConfig.ariaLabel}
             className={styles.textarea}
-            value={html}
-            onChange={(e) => { setHtml(e.target.value); setError(null); setHtmlWarning && setHtmlWarning(null); }}
-            placeholder={`Paste your HTML here…\n\nOr drag & drop a .html file\n\n<!-- Tip: include explicit width/height on body\n     for perfect viewport sizing -->`}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+              if (setHtmlWarning) setHtmlWarning(null);
+            }}
+            placeholder={modeConfig.placeholder}
             spellCheck={false}
             style={{ background: 'transparent' }}
           />
@@ -308,47 +351,54 @@ const HtmlWorkspace = forwardRef(function HtmlWorkspace({
               <span>📂 Drop .html file here</span>
             </div>
           )}
+          {parseError && (
+            <div style={{ color: 'red', marginTop: '8px', padding: '0 12px' }}>
+              {parseError}
+            </div>
+          )}
         </div>
       </div>
 
       {failedResources && failedResources.length > 0 && (
-        <div style={{ color: '#ffa100', marginTop: '8px', fontSize: '14px' }}>
+        <div style={{ color: '#ffa100', fontSize: '14px' }}>
           Notice: {failedResources.length} external resource{failedResources.length > 1 ? 's' : ''} failed to load (likely due to CORS).
         </div>
       )}
 
-      <div className={styles.uploadRow}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".html,text/html"
-          style={{ display: "none" }}
-          onChange={(e) => handleFileUpload(e.target.files?.[0])}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button
-            className={`${styles.uploadBtn} neu-raised`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <span>📁</span> Upload .html file
-          </button>
-          {html && (
-            <span className={`${styles.charCount} neu-recessed`}>
-              {html.length.toLocaleString()} chars
-            </span>
-          )}
+      {modeConfig.hasFileUpload && (
+        <div className={styles.uploadRow}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,text/html"
+            style={{ display: "none" }}
+            onChange={(e) => handleFileUpload(e.target.files?.[0])}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              className={`${styles.uploadBtn} neu-raised`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <span>📁</span> Upload .html file
+            </button>
+            {value && (
+              <span className={`${styles.charCount} neu-recessed`}>
+                {value.length.toLocaleString()} chars
+              </span>
+            )}
+          </div>
+          <span className={styles.uploadHint}>
+            or drag & drop onto the editor above
+          </span>
         </div>
-        <span className={styles.uploadHint}>
-          or drag & drop onto the editor above
-        </span>
-      </div>
+      )}
 
       {htmlWarning && (
-        <div style={{ color: '#F30A49', marginTop: '8px', fontSize: '14px', border: '1px solid #F30A49', padding: '8px', borderRadius: '4px' }}>
+        <div style={{ color: '#F30A49', fontSize: '14px', border: '1px solid #F30A49', padding: '8px', borderRadius: '4px' }}>
           {htmlWarning}
           <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
             <button
-               onClick={() => { setHtmlWarning(null); handleConvert(html, true); }}
+               onClick={() => { setHtmlWarning(null); handleConvert(value, true); }}
                style={{ padding: '4px 8px', cursor: 'pointer' }}>Proceed anyway</button>
             <button
                onClick={() => setHtmlWarning(null)}
@@ -359,8 +409,8 @@ const HtmlWorkspace = forwardRef(function HtmlWorkspace({
 
       <button
         className={`${styles.convertBtn} ${loading ? styles.convertBtnLoading : ""}`}
-        onClick={() => handleConvert(html)}
-        disabled={loading || !html.trim()}
+        onClick={() => handleConvert(value)}
+        disabled={loading || !value.trim()}
       >
         {loading ? (
           <>
@@ -373,123 +423,7 @@ const HtmlWorkspace = forwardRef(function HtmlWorkspace({
           </>
         )}
       </button>
-    </>
-  );
-});
-
-const MermaidWorkspace = forwardRef(function MermaidWorkspace({
-  isVisible,
-  mermaidLoading,
-  setMermaidError,
-  handleMermaidConvert
-}, ref) {
-  const [mermaid, setMermaid] = useState("");
-
-  useImperativeHandle(ref, () => ({
-    resetMermaid: () => {
-      setMermaid("");
-    },
-    loadSample: () => {
-      setMermaid(SAMPLE_MERMAID);
-      setMermaidError(null);
-    }
-  }));
-
-  if (!isVisible) return null;
-
-  return (
-    <>
-      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
-        <div className={styles.dropZone}>
-          <textarea
-            aria-label="Input Mermaid"
-            className={styles.textarea}
-            value={mermaid}
-            onChange={(e) => { setMermaid(e.target.value); setMermaidError(null); }}
-            placeholder={`Paste your Mermaid code here…`}
-            spellCheck={false}
-            style={{ background: 'transparent' }}
-          />
-        </div>
-      </div>
-      <button
-        className={`${styles.convertBtn} ${mermaidLoading ? styles.convertBtnLoading : ""}`}
-        onClick={() => handleMermaidConvert(mermaid)}
-        disabled={mermaidLoading || !mermaid.trim()}
-      >
-        {mermaidLoading ? (
-          <>
-            <Mario />
-            Converting…
-          </>
-        ) : (
-          <>
-            Convert to PNG
-          </>
-        )}
-      </button>
-    </>
-  );
-});
-
-const LatexWorkspace = forwardRef(function LatexWorkspace({
-  isVisible,
-  latexLoading,
-  latexParseError,
-  setLatexError,
-  handleLatexConvert
-}, ref) {
-  const [latex, setLatex] = useState("");
-
-  useImperativeHandle(ref, () => ({
-    resetLatex: () => {
-      setLatex("");
-    },
-    loadSample: () => {
-      setLatex(SAMPLE_LATEX);
-      setLatexError(null);
-    }
-  }));
-
-  if (!isVisible) return null;
-
-  return (
-    <>
-      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
-        <div className={styles.dropZone}>
-          <textarea
-            aria-label="Input LaTeX"
-            className={styles.textarea}
-            value={latex}
-            onChange={(e) => { setLatex(e.target.value); setLatexError(null); }}
-            placeholder={`Paste your LaTeX math code here…`}
-            spellCheck={false}
-            style={{ background: 'transparent' }}
-          />
-          {latexParseError && (
-            <div style={{ color: 'red', marginTop: '8px', padding: '0 12px' }}>
-              {latexParseError}
-            </div>
-          )}
-        </div>
-      </div>
-      <button
-        className={`${styles.convertBtn} ${latexLoading ? styles.convertBtnLoading : ""}`}
-        onClick={() => handleLatexConvert(latex)}
-        disabled={latexLoading || !latex.trim()}
-      >
-        {latexLoading ? (
-          <>
-            <Mario />
-            Converting…
-          </>
-        ) : (
-          <>
-            Convert to PNG
-          </>
-        )}
-      </button>
-    </>
+    </div>
   );
 });
 
@@ -517,13 +451,13 @@ export const InputCard = forwardRef(function InputCard({
 
   useImperativeHandle(ref, () => ({
     resetHtml: () => {
-      htmlRef.current?.resetHtml();
+      htmlRef.current?.reset();
     },
     resetMermaid: () => {
-      mermaidRef.current?.resetMermaid();
+      mermaidRef.current?.reset();
     },
     resetLatex: () => {
-      latexRef.current?.resetLatex();
+      latexRef.current?.reset();
     },
     scrollToInput: () => {
       cardRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -544,47 +478,26 @@ export const InputCard = forwardRef(function InputCard({
     <div className={`${styles.card} neu-card`} ref={cardRef}>
       {/* Mode Toggle */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-        <button
-          className={`${styles.sampleBtn} ${mode === "html" ? "neu-recessed" : "neu-raised"}`}
-          style={{
-            flex: 1,
-            background: mode === "html" ? 'rgba(255,161,0,0.1)' : undefined,
-            color: mode === "html" ? '#ffa100' : undefined,
-            border: mode === "html" ? '1px solid rgba(255,161,0,0.3)' : undefined
-          }}
-          onClick={() => setMode("html")}
-        >
-          HTML Mode
-        </button>
-        <button
-          className={`${styles.sampleBtn} ${mode === "mermaid" ? "neu-recessed" : "neu-raised"}`}
-          style={{
-            flex: 1,
-            background: mode === "mermaid" ? 'rgba(255,161,0,0.1)' : undefined,
-            color: mode === "mermaid" ? '#ffa100' : undefined,
-            border: mode === "mermaid" ? '1px solid rgba(255,161,0,0.3)' : undefined
-          }}
-          onClick={() => setMode("mermaid")}
-        >
-          Mermaid Mode
-        </button>
-        <button
-          className={`${styles.sampleBtn} ${mode === "latex" ? "neu-recessed" : "neu-raised"}`}
-          style={{
-            flex: 1,
-            background: mode === "latex" ? 'rgba(255,161,0,0.1)' : undefined,
-            color: mode === "latex" ? '#ffa100' : undefined,
-            border: mode === "latex" ? '1px solid rgba(255,161,0,0.3)' : undefined
-          }}
-          onClick={() => setMode("latex")}
-        >
-          LaTeX Mode
-        </button>
+        {Object.values(MODE_CONFIGS).map((cfg) => (
+          <button
+            key={cfg.mode}
+            className={`${styles.sampleBtn} ${mode === cfg.mode ? "neu-recessed" : "neu-raised"}`}
+            style={{
+              flex: 1,
+              background: mode === cfg.mode ? 'rgba(255,161,0,0.1)' : undefined,
+              color: mode === cfg.mode ? '#ffa100' : undefined,
+              border: mode === cfg.mode ? '1px solid rgba(255,161,0,0.3)' : undefined
+            }}
+            onClick={() => setMode(cfg.mode)}
+          >
+            {cfg.label}
+          </button>
+        ))}
       </div>
 
       <div className={styles.cardHeader}>
         <h2 className={styles.cardTitle}>
-          {mode === "html" ? "Input HTML" : mode === "mermaid" ? "Input Mermaid" : "Input LaTeX"}
+          {MODE_CONFIGS[mode].cardTitle}
         </h2>
         <button className={`${styles.sampleBtn} neu-raised`} onClick={loadSample}>
           Load sample ↗
@@ -592,8 +505,9 @@ export const InputCard = forwardRef(function InputCard({
       </div>
 
       {/* Workspaces */}
-      <HtmlWorkspace
+      <Workspace
         ref={htmlRef}
+        modeConfig={MODE_CONFIGS.html}
         isVisible={mode === "html"}
         loading={loading}
         failedResources={failedResources}
@@ -602,21 +516,23 @@ export const InputCard = forwardRef(function InputCard({
         handleConvert={handleConvert}
         setError={setError}
       />
-      <MermaidWorkspace
+      <Workspace
         ref={mermaidRef}
+        modeConfig={MODE_CONFIGS.mermaid}
         isVisible={mode === "mermaid"}
-        mermaidLoading={mermaidLoading}
-        setMermaidError={setMermaidError}
-        handleMermaidConvert={handleMermaidConvert}
+        loading={mermaidLoading}
+        handleConvert={handleMermaidConvert}
+        setError={setMermaidError}
       />
-      <LatexWorkspace
+      <Workspace
         ref={latexRef}
+        modeConfig={MODE_CONFIGS.latex}
         isVisible={mode === "latex"}
-        latexLoading={latexLoading}
-        latexParseError={latexParseError}
-        setLatexError={setLatexError}
-        handleLatexConvert={handleLatexConvert}
+        loading={latexLoading}
+        parseError={latexParseError}
+        handleConvert={handleLatexConvert}
+        setError={setLatexError}
       />
     </div>
   );
-})
+});
