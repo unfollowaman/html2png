@@ -1,8 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
 
-// Use bundled import of KaTeX and its CSS for zero-backend client app
-import 'katex/dist/katex.min.css';
-
 export function useLatexToPngConversion({ outputRef }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -35,8 +32,11 @@ export function useLatexToPngConversion({ outputRef }) {
     let resultObjectUrl = null;
 
     try {
-      // Lazy load KaTeX to avoid blocking initial render
-      const katexModule = await import('katex');
+      // Lazy load KaTeX and its CSS to avoid blocking initial render
+      const [katexModule] = await Promise.all([
+        import('katex'),
+        import('katex/dist/katex.min.css')
+      ]);
       const katex = katexModule.default || katexModule;
 
       if (myRequestId !== latestRequestIdRef.current) return;
