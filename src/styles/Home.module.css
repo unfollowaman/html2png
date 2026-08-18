@@ -408,6 +408,13 @@
   box-shadow: var(--neu-raised-shadow-hover), 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
+/* ── WORKSPACE ───────────────────────────────── */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* ── TEXTAREA / DROP ZONE ──────────────────────── */
 .dropZone {
   position: relative;
@@ -466,8 +473,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-top: 14px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
