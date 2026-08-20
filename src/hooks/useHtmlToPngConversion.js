@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { inlineResources } from './inlineResources'
+import { createIsolatedIframe } from '../utils/createIsolatedIframe'
 
 const BODY_WIDTH_REGEX = /(?:body|html)\s*(?:\/\*.*?\*\/\s*)*\{[^}]*?width:\s*(\d+)px/i
 const BODY_HEIGHT_REGEX = /(?:body|html)\s*(?:\/\*.*?\*\/\s*)*\{[^}]*?height:\s*(\d+)px/i
@@ -119,14 +120,7 @@ export function useHtmlToPngConversion({ outputRef }) {
 
 
     // Create a hidden iframe to render the HTML in isolation
-    const iframe = document.createElement('iframe')
-    iframe.style.position = 'absolute'
-    iframe.style.top = '-99999px'
-    iframe.style.left = '-99999px'
-    iframe.style.width = '9999px'
-    iframe.style.height = '9999px'
-    iframe.style.border = 'none'
-    iframe.style.visibility = 'hidden'
+    const iframe = createIsolatedIframe()
 
     document.body.appendChild(iframe)
 

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { createIsolatedIframe } from '../utils/createIsolatedIframe';
 
 export function useLatexToPngConversion({ outputRef }) {
   const [loading, setLoading] = useState(false);
@@ -60,14 +61,7 @@ export function useLatexToPngConversion({ outputRef }) {
 
       // Create offscreen container via isolated iframe to prevent html-to-image from
       // traversing cross-origin stylesheets (like Google Fonts) and throwing SecurityErrors.
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'absolute';
-      iframe.style.top = '-99999px';
-      iframe.style.left = '-99999px';
-      iframe.style.width = '9999px';
-      iframe.style.height = '9999px';
-      iframe.style.border = 'none';
-      iframe.style.visibility = 'hidden';
+      const iframe = createIsolatedIframe();
 
       document.body.appendChild(iframe);
 
