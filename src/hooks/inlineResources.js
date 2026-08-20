@@ -7,18 +7,32 @@ async function replaceAsync(str, regex, asyncFn) {
   return str.replace(regex, () => data.shift());
 }
 
+const dataUrlCache = new Map();
+
 async function fetchAsDataUrl(url) {
-  const response = await fetch(url, { mode: 'cors' });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  if (dataUrlCache.has(url)) {
+    return dataUrlCache.get(url);
   }
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+
+  const promise = (async () => {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  })().catch((err) => {
+    dataUrlCache.delete(url);
+    throw err;
   });
+
+  dataUrlCache.set(url, promise);
+  return promise;
 }
 
 async function inlineCssUrls(text, failedUrls) {
