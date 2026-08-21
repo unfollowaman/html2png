@@ -4,16 +4,16 @@ import { renderImageToPngBlobUrl } from '../utils/canvasToBlob.js';
 let cachedStyleString = null;
 let fontLoadingPromise = null;
 
-function arrayBufferToBase64(buffer) {
-  let binary = '';
+export function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
   const chunk = 16384; // 16KB chunks to avoid stack overflow
+  const chunks = [];
   for (let i = 0; i < len; i += chunk) {
     const sub = bytes.subarray(i, Math.min(i + chunk, len));
-    binary += String.fromCharCode.apply(null, sub);
+    chunks.push(String.fromCharCode.apply(null, sub));
   }
-  return btoa(binary);
+  return btoa(chunks.join(''));
 }
 
 async function loadFontsAndBuildStyleString() {
