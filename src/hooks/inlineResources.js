@@ -4,7 +4,8 @@ async function replaceAsync(str, regex, asyncFn) {
     promises.push(asyncFn(match, ...args));
   });
   const data = await Promise.all(promises);
-  return str.replace(regex, () => data.shift());
+  let index = 0;
+  return str.replace(regex, () => data[index++]);
 }
 
 const dataUrlCache = new Map();
