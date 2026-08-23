@@ -1,21 +1,6 @@
 import styles from "../styles/Home.module.css";
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
 
-const MARIO_SPRITE_FRAMES = ["🏃", "🏃‍♂️", "🚶", "🚶‍♂️"];
-
-function Mario() {
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFrame((f) => (f + 1) % MARIO_SPRITE_FRAMES.length);
-    }, 150);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <span className={styles.marioRunner}>{MARIO_SPRITE_FRAMES[frame]}</span>;
-}
-
 const SAMPLE_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -412,16 +397,7 @@ const Workspace = forwardRef(function Workspace({
         onClick={() => handleConvert(value)}
         disabled={loading || !value.trim()}
       >
-        {loading ? (
-          <>
-            <Mario />
-            Converting…
-          </>
-        ) : (
-          <>
-            Convert to PNG
-          </>
-        )}
+        {loading ? "Converting…" : "Convert to PNG"}
       </button>
     </div>
   );
