@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import DOMPurify from 'dompurify'
 import { inlineResources } from './inlineResources'
 import { createIsolatedIframe } from '../utils/createIsolatedIframe'
 
@@ -132,10 +133,17 @@ export function useHtmlToPngConversion({ outputRef }) {
       if (myRequestId !== latestRequestIdRef.current) return
       setFailedResources(failedUrls)
 
+      // Sanitize HTML to prevent XSS before writing to isolated iframe
+      const sanitizedHtml = DOMPurify.sanitize(processedHtml, {
+        WHOLE_DOCUMENT: true,
+        ADD_TAGS: ['style', 'link'],
+        ADD_ATTR: ['style', 'rel', 'href'],
+      })
+
       // Write HTML into iframe
       const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
       iframeDoc.open()
-      iframeDoc.write(processedHtml)
+      iframeDoc.write(sanitizedHtml)
       iframeDoc.close()
 
       // Wait for iframe load
