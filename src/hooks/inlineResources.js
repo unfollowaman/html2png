@@ -8,9 +8,90 @@ async function replaceAsync(str, regex, asyncFn) {
   return str.replace(regex, () => data[index++]);
 }
 
+export function isPrivateOrLoopbackHost(hostname) {
+  if (!hostname) return true;
+  let host = hostname.toLowerCase();
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1);
+  }
+
+  // Check localhost and local TLDs
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.lan') ||
+    host.endsWith('.home.arpa')
+  ) {
+    return true;
+  }
+
+  // IPv4 regex matching standard dotted quad
+  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  const match = host.match(ipv4Regex);
+  if (match) {
+    const p = match.slice(1).map(Number);
+    if (p.some((n) => n > 255)) return true; // Invalid IP, block
+    if (p[0] === 127) return true; // 127.0.0.0/8 (Loopback)
+    if (p[0] === 10) return true; // 10.0.0.0/8 (Private)
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true; // 172.16.0.0/12 (Private)
+    if (p[0] === 192 && p[1] === 168) return true; // 192.168.0.0/16 (Private)
+    if (p[0] === 169 && p[1] === 254) return true; // 169.254.0.0/16 (Link-local / Cloud Metadata)
+    if (p[0] === 0) return true; // 0.0.0.0/8 (Current network)
+    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // 100.64.0.0/10 (CGNAT)
+    if (p[0] === 192 && p[1] === 0 && p[2] === 0) return true; // 192.0.0.0/24
+    if (p[0] === 192 && p[1] === 0 && p[2] === 2) return true; // 192.0.2.0/24
+    if (p[0] === 198 && p[1] === 51 && p[2] === 100) return true; // 198.51.100.0/24
+    if (p[0] === 203 && p[1] === 0 && p[2] === 113) return true; // 203.0.113.0/24
+    if (p[0] >= 224) return true; // Multicast & Reserved
+    return false;
+  }
+
+  // IPv6 checks
+  if (host === '::1' || host === '::' || host === '0:0:0:0:0:0:0:1' || host === '0:0:0:0:0:0:0:0') return true;
+  if (host.startsWith('fe8') || host.startsWith('fe9') || host.startsWith('fea') || host.startsWith('feb')) return true; // fe80::/10 link-local
+  if (host.startsWith('fc') || host.startsWith('fd')) return true; // fc00::/7 unique local
+
+  // IPv4-mapped IPv6 address: ::ffff:x.x.x.x or ::ffff:7f00:1 (hex format)
+  if (host.startsWith('::ffff:') || host.startsWith('0:0:0:0:0:ffff:')) {
+    const rest = host.replace(/^.*:ffff:/, '');
+    if (rest.includes('.')) {
+      return isPrivateOrLoopbackHost(rest);
+    }
+    const parts = rest.split(':');
+    if (parts.length === 2) {
+      const high = parseInt(parts[0], 16);
+      const low = parseInt(parts[1], 16);
+      if (!isNaN(high) && !isNaN(low)) {
+        const ip = `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
+        return isPrivateOrLoopbackHost(ip);
+      }
+    }
+  }
+
+  return false;
+}
+
+export function isBlockedUrl(urlString) {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return true;
+    }
+    return isPrivateOrLoopbackHost(parsed.hostname);
+  } catch {
+    return true;
+  }
+}
+
 const dataUrlCache = new Map();
 
 async function fetchAsDataUrl(url) {
+  if (isBlockedUrl(url)) {
+    throw new Error(`Blocked fetch attempt to restricted URL: ${url}`);
+  }
+
   if (dataUrlCache.has(url)) {
     return dataUrlCache.get(url);
   }
@@ -63,6 +144,10 @@ export async function inlineResources(html) {
 
     if (relMatch && hrefMatch) {
       const url = hrefMatch[2];
+      if (isBlockedUrl(url)) {
+        failedUrls.push(url);
+        return match;
+      }
       try {
         const response = await fetch(url, { mode: 'cors' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
