@@ -1,9 +1,80 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { inlineResources } from './inlineResources';
+import { inlineResources, isBlockedUrl, isPrivateOrLoopbackHost } from './inlineResources';
 
-describe('inlineResources', () => {
+describe('inlineResources Security & Functionality', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('isPrivateOrLoopbackHost & isBlockedUrl SSRF prevention', () => {
+    it('blocks loopback hostnames and IP addresses', () => {
+      expect(isPrivateOrLoopbackHost('localhost')).toBe(true);
+      expect(isPrivateOrLoopbackHost('sub.localhost')).toBe(true);
+      expect(isPrivateOrLoopbackHost('127.0.0.1')).toBe(true);
+      expect(isPrivateOrLoopbackHost('127.0.0.2')).toBe(true);
+      expect(isPrivateOrLoopbackHost('0.0.0.0')).toBe(true);
+      expect(isPrivateOrLoopbackHost('[::1]')).toBe(true);
+      expect(isPrivateOrLoopbackHost('[::]')).toBe(true);
+    });
+
+    it('blocks private IPv4 address spaces', () => {
+      expect(isPrivateOrLoopbackHost('10.0.0.1')).toBe(true);
+      expect(isPrivateOrLoopbackHost('10.255.255.255')).toBe(true);
+      expect(isPrivateOrLoopbackHost('172.16.0.1')).toBe(true);
+      expect(isPrivateOrLoopbackHost('172.31.255.255')).toBe(true);
+      expect(isPrivateOrLoopbackHost('192.168.1.1')).toBe(true);
+    });
+
+    it('blocks cloud metadata, link-local, and reserved IPv4/IPv6 addresses', () => {
+      expect(isPrivateOrLoopbackHost('169.254.169.254')).toBe(true); // AWS/GCP Metadata
+      expect(isPrivateOrLoopbackHost('[fe80::1]')).toBe(true); // IPv6 link-local
+      expect(isPrivateOrLoopbackHost('[fc00::1]')).toBe(true); // IPv6 unique local
+      expect(isPrivateOrLoopbackHost('[fd00::1]')).toBe(true);
+      expect(isPrivateOrLoopbackHost('[::ffff:127.0.0.1]')).toBe(true); // IPv4-mapped IPv6 loopback
+      expect(isPrivateOrLoopbackHost('[::ffff:7f00:1]')).toBe(true); // Hex IPv4-mapped IPv6 loopback
+    });
+
+    it('blocks local TLDs and domain suffixes', () => {
+      expect(isPrivateOrLoopbackHost('service.local')).toBe(true);
+      expect(isPrivateOrLoopbackHost('app.internal')).toBe(true);
+      expect(isPrivateOrLoopbackHost('device.lan')).toBe(true);
+      expect(isPrivateOrLoopbackHost('router.home.arpa')).toBe(true);
+    });
+
+    it('allows public domain names and public IP addresses', () => {
+      expect(isPrivateOrLoopbackHost('example.com')).toBe(false);
+      expect(isBlockedUrl('https://example.com/logo.png')).toBe(false);
+      expect(isBlockedUrl('http://172.32.0.1/style.css')).toBe(false);
+      expect(isBlockedUrl('https://8.8.8.8/dns')).toBe(false);
+    });
+
+    it('blocks invalid schemes/protocols and invalid URLs', () => {
+      expect(isBlockedUrl('file:///etc/passwd')).toBe(true);
+      expect(isBlockedUrl('javascript:alert(1)')).toBe(true);
+      expect(isBlockedUrl('ftp://example.com/file')).toBe(true);
+      expect(isBlockedUrl('not a url')).toBe(true);
+    });
+  });
+
+  it('prevents inlineResources from fetching loopback/private IP resources', async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+
+    const html = `
+      <link rel="stylesheet" href="http://127.0.0.1/style.css">
+      <img src="http://169.254.169.254/latest/meta-data/" />
+      <div style="background: url('http://localhost:8080/secret.png');"></div>
+    `;
+
+    const { html: resultHtml, failedUrls } = await inlineResources(html);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(failedUrls).toEqual([
+      'http://127.0.0.1/style.css',
+      'http://169.254.169.254/latest/meta-data/',
+      'http://localhost:8080/secret.png',
+    ]);
+    expect(resultHtml).toContain('http://127.0.0.1/style.css');
   });
 
   it('inlines images and CSS url() resources', async () => {
