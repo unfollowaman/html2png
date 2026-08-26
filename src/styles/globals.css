@@ -4,6 +4,10 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  ascent-override: 97.14%;
+  descent-override: 23.22%;
+  line-gap-override: 0%;
+  size-adjust: 94.40%;
 }
 
 @font-face {
@@ -28,6 +32,10 @@
   font-weight: 500;
   font-style: normal;
   font-display: swap;
+  ascent-override: 91.65%;
+  descent-override: 21.45%;
+  line-gap-override: 3.31%;
+  size-adjust: 98.77%;
 }
 
 @font-face {
@@ -36,6 +44,10 @@
   font-weight: 600;
   font-style: normal;
   font-display: swap;
+  ascent-override: 91.65%;
+  descent-override: 21.45%;
+  line-gap-override: 3.31%;
+  size-adjust: 98.77%;
 }
 
 @font-face {
@@ -44,6 +56,10 @@
   font-weight: 700;
   font-style: normal;
   font-display: swap;
+  ascent-override: 91.65%;
+  descent-override: 21.45%;
+  line-gap-override: 3.31%;
+  size-adjust: 98.77%;
 }
 
 @font-face {
@@ -52,6 +68,10 @@
   font-weight: 800;
   font-style: normal;
   font-display: swap;
+  ascent-override: 91.65%;
+  descent-override: 21.45%;
+  line-gap-override: 3.31%;
+  size-adjust: 98.77%;
 }
 
 @font-face {
@@ -60,6 +80,10 @@
   font-weight: 900;
   font-style: normal;
   font-display: swap;
+  ascent-override: 91.65%;
+  descent-override: 21.45%;
+  line-gap-override: 3.31%;
+  size-adjust: 98.77%;
 }
 
 @font-face {
