@@ -42,7 +42,10 @@ export default defineConfig({
     modulePreload: {
       resolveDependencies(filename, deps) {
         return deps.filter(
-          (dep) => !dep.includes('vendor-katex') && !dep.includes('vendor-mermaid')
+          (dep) =>
+            !dep.includes('vendor-katex') &&
+            !dep.includes('vendor-mermaid') &&
+            !dep.includes('vendor-html-to-image')
         );
       },
     },
@@ -50,11 +53,17 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('katex')) {
+            if (
+              id.includes('node_modules/mermaid') ||
+              id.includes('node_modules/@mermaid-js')
+            ) {
+              return 'vendor-mermaid';
+            }
+            if (id.includes('node_modules/katex')) {
               return 'vendor-katex';
             }
-            if (id.includes('mermaid')) {
-              return 'vendor-mermaid';
+            if (id.includes('node_modules/html-to-image')) {
+              return 'vendor-html-to-image';
             }
             return 'vendor';
           }
