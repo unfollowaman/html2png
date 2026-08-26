@@ -11,9 +11,15 @@ export default function App() {
   const inputRef = useRef(null);
   const [mode, setMode] = useState("html");
 
+  // Update document title based on mode
   useEffect(() => {
-    document.title = "HTML → PNG Converter";
-  }, []);
+    const titles = {
+      html: "HTML to PNG Converter",
+      mermaid: "Mermaid to PNG Converter",
+      latex: "LaTeX to PNG Converter",
+    };
+    document.title = titles[mode] || "Render Flow";
+  }, [mode]);
 
   const { loading, result, error, failedResources, htmlWarning, setHtmlWarning, setError, handleConvert, handleReset } = useHtmlToPngConversion({
     outputRef,
