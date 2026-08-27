@@ -6,6 +6,7 @@ import { Header, Hero, Footer } from "./components";
 const HtmlConverter = React.lazy(() => import("./components/HtmlConverter"));
 const MermaidConverter = React.lazy(() => import("./components/MermaidConverter"));
 const LatexConverter = React.lazy(() => import("./components/LatexConverter"));
+const NotesConverter = React.lazy(() => import("./components/NotesConverter"));
 
 export default function App() {
   const outputRef = useRef(null);
@@ -13,6 +14,7 @@ export default function App() {
   const htmlConverterRef = useRef(null);
   const mermaidConverterRef = useRef(null);
   const latexConverterRef = useRef(null);
+  const notesConverterRef = useRef(null);
   const [mode, setMode] = useState("html");
 
   // Update document title based on mode
@@ -21,6 +23,7 @@ export default function App() {
       html: "HTML to PNG Converter",
       mermaid: "Mermaid to PNG Converter",
       latex: "LaTeX to PNG Converter",
+      notes: "Notes to PNG Converter",
     };
     document.title = titles[mode] || "Render Flow";
   }, [mode]);
@@ -29,9 +32,11 @@ export default function App() {
     inputRef.current?.resetHtml();
     inputRef.current?.resetMermaid();
     inputRef.current?.resetLatex();
+    inputRef.current?.resetNotes();
     htmlConverterRef.current?.handleReset();
     mermaidConverterRef.current?.handleReset();
     latexConverterRef.current?.handleReset();
+    notesConverterRef.current?.handleReset();
     inputRef.current?.scrollToInput();
   };
 
@@ -65,9 +70,18 @@ export default function App() {
                 setMode={setMode}
                 onReset={onReset}
               />
-            ) : (
+            ) : mode === "latex" ? (
               <LatexConverter
                 ref={latexConverterRef}
+                inputRef={inputRef}
+                outputRef={outputRef}
+                mode={mode}
+                setMode={setMode}
+                onReset={onReset}
+              />
+            ) : (
+              <NotesConverter
+                ref={notesConverterRef}
                 inputRef={inputRef}
                 outputRef={outputRef}
                 mode={mode}

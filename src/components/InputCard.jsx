@@ -1,5 +1,5 @@
 import styles from "../styles/Home.module.css";
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useState, forwardRef, useImperativeHandle } from "react";
 
 const SAMPLE_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -224,6 +224,28 @@ graph TD
 
 const SAMPLE_LATEX = "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}";
 
+const SAMPLE_NOTES = `{
+  "chapter": { "title": "Chapter 1: Mechanics", "subtitle": "Kinematics & Newton's Laws" },
+  "pages": [
+    {
+      "items": [
+        {
+          "type": "question",
+          "number": 1,
+          "question": [ { "type": "text", "content": "What is Newton's Second Law of Motion?" } ],
+          "solution": [ { "type": "text", "content": "Newton's Second Law states that force equals mass times acceleration (F = ma)." } ]
+        },
+        {
+          "type": "question",
+          "number": 2,
+          "question": [ { "type": "text", "content": "Define momentum." } ],
+          "solution": [ { "type": "text", "content": "Momentum is the product of an object's mass and its velocity (p = mv)." } ]
+        }
+      ]
+    }
+  ]
+}`;
+
 const MODE_CONFIGS = {
   html: {
     mode: "html",
@@ -250,6 +272,15 @@ const MODE_CONFIGS = {
     ariaLabel: "Input LaTeX",
     placeholder: `Paste your LaTeX math code here…`,
     sampleText: SAMPLE_LATEX,
+    hasFileUpload: false
+  },
+  notes: {
+    mode: "notes",
+    label: "Notes Mode",
+    cardTitle: "Input Notes JSON",
+    ariaLabel: "Input Notes JSON",
+    placeholder: `Paste your Notes JSON here…`,
+    sampleText: SAMPLE_NOTES,
     hasFileUpload: false
   }
 };
@@ -403,6 +434,131 @@ const Workspace = forwardRef(function Workspace({
   );
 });
 
+const NotesWorkspace = forwardRef(function NotesWorkspace({
+  modeConfig,
+  isVisible,
+  loading,
+  validationError,
+  validationSuccess,
+  setNotesError,
+  validateNotesJson,
+  handleNotesGenerate,
+  handleNotesReset
+}, ref) {
+  const [value, setValue] = useState("");
+  const fileInputRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setValue("");
+      handleNotesReset?.();
+    },
+    loadSample: () => {
+      setValue(modeConfig.sampleText);
+      setNotesError?.(null);
+    }
+  }));
+
+  if (!isVisible) return null;
+
+  const handleFileUpload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setValue(e.target.result || "");
+      handleNotesReset?.();
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClear = () => {
+    setValue("");
+    handleNotesReset?.();
+  };
+
+  return (
+    <div className={styles.workspace}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          handleFileUpload(file);
+          e.target.value = "";
+        }}
+      />
+
+      <div className="neu-recessed" style={{ borderRadius: '12px' }}>
+        <div className={styles.dropZone}>
+          <textarea
+            aria-label={modeConfig.ariaLabel}
+            className={styles.textarea}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+            }}
+            placeholder={modeConfig.placeholder}
+            spellCheck={false}
+            style={{ background: 'transparent' }}
+          />
+        </div>
+      </div>
+
+      {/* Action Buttons Row */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          className={`${styles.uploadBtn} neu-raised`}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <span>📁</span> Load JSON
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.sampleBtn} neu-raised`}
+          onClick={() => validateNotesJson(value)}
+        >
+          Validate
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.sampleBtn} neu-raised`}
+          style={{ color: '#e53e3e' }}
+          onClick={handleClear}
+        >
+          Clear
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.convertBtn}`}
+          style={{ flex: '1 1 200px', height: '48px', margin: 0 }}
+          onClick={() => handleNotesGenerate(value)}
+          disabled={loading || !value.trim()}
+        >
+          {loading ? "Generating…" : "Generate"}
+        </button>
+      </div>
+
+      {/* Inline Feedback Messages */}
+      {validationSuccess && (
+        <div style={{ color: '#16A34A', fontSize: '14px', fontWeight: '600', padding: '4px 8px' }}>
+          ✓ {validationSuccess}
+        </div>
+      )}
+      {validationError && (
+        <div style={{ color: '#e53e3e', fontSize: '14px', fontWeight: '500', padding: '4px 8px' }}>
+          ⚠️ {validationError}
+        </div>
+      )}
+    </div>
+  );
+});
+
 export const InputCard = forwardRef(function InputCard({
   mode,
   setMode,
@@ -418,11 +574,19 @@ export const InputCard = forwardRef(function InputCard({
   latexLoading,
   latexParseError,
   setLatexError,
-  handleLatexConvert
+  handleLatexConvert,
+  notesLoading,
+  notesValidationError,
+  notesValidationSuccess,
+  setNotesError,
+  validateNotesJson,
+  handleNotesGenerate,
+  handleNotesReset
 }, ref) {
   const htmlRef = useRef(null);
   const mermaidRef = useRef(null);
   const latexRef = useRef(null);
+  const notesRef = useRef(null);
   const cardRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
@@ -435,6 +599,9 @@ export const InputCard = forwardRef(function InputCard({
     resetLatex: () => {
       latexRef.current?.reset();
     },
+    resetNotes: () => {
+      notesRef.current?.reset();
+    },
     scrollToInput: () => {
       cardRef.current?.scrollIntoView({ behavior: "smooth" });
     }
@@ -445,8 +612,10 @@ export const InputCard = forwardRef(function InputCard({
       htmlRef.current?.loadSample();
     } else if (mode === "mermaid") {
       mermaidRef.current?.loadSample();
-    } else {
+    } else if (mode === "latex") {
       latexRef.current?.loadSample();
+    } else if (mode === "notes") {
+      notesRef.current?.loadSample();
     }
   };
 
@@ -508,6 +677,18 @@ export const InputCard = forwardRef(function InputCard({
         parseError={latexParseError}
         handleConvert={handleLatexConvert}
         setError={setLatexError}
+      />
+      <NotesWorkspace
+        ref={notesRef}
+        modeConfig={MODE_CONFIGS.notes}
+        isVisible={mode === "notes"}
+        loading={notesLoading}
+        validationError={notesValidationError}
+        validationSuccess={notesValidationSuccess}
+        setNotesError={setNotesError}
+        validateNotesJson={validateNotesJson}
+        handleNotesGenerate={handleNotesGenerate}
+        handleNotesReset={handleNotesReset}
       />
     </div>
   );
