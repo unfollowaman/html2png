@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { InputCard, ErrorCard } from "./";
 import { A4Page } from "./A4Page";
 import { useNotesToPngConversion } from "../hooks/useNotesToPngConversion";
@@ -8,6 +8,8 @@ const NotesConverter = forwardRef(function NotesConverter(
   { inputRef, outputRef, mode, setMode, onReset },
   ref
 ) {
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
   const {
     loading: notesLoading,
     result: notesResult,
@@ -22,9 +24,27 @@ const NotesConverter = forwardRef(function NotesConverter(
     outputRef,
   });
 
+  // Reset page index when notesResult changes
+  useEffect(() => {
+    setCurrentPageIndex(0);
+  }, [notesResult]);
+
   useImperativeHandle(ref, () => ({
-    handleReset: handleNotesReset,
+    handleReset: () => {
+      setCurrentPageIndex(0);
+      handleNotesReset();
+    },
   }));
+
+  const pages = notesResult?.pages || [];
+  const totalPages = pages.length;
+  const activePage = pages[currentPageIndex] || null;
+
+  const pageData = activePage ? {
+    chapter: notesResult.chapter,
+    items: activePage.items,
+    isOverflow: activePage.isOverflow
+  } : null;
 
   return (
     <>
@@ -41,7 +61,7 @@ const NotesConverter = forwardRef(function NotesConverter(
         handleNotesReset={handleNotesReset}
       />
       {notesError && <ErrorCard error={notesError} />}
-      {notesResult && (
+      {notesResult && pageData && (
         <div
           className={`${styles.card} neu-card`}
           ref={outputRef}
@@ -54,7 +74,61 @@ const NotesConverter = forwardRef(function NotesConverter(
             overflowX: "auto",
           }}
         >
-          <A4Page data={notesResult} />
+          {/* Navigation Controls */}
+          {totalPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                marginBottom: "20px",
+              }}
+            >
+              <button
+                type="button"
+                className="neu-raised"
+                disabled={currentPageIndex === 0}
+                onClick={() => setCurrentPageIndex((prev) => Math.max(0, prev - 1))}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  cursor: currentPageIndex === 0 ? "not-allowed" : "pointer",
+                  opacity: currentPageIndex === 0 ? 0.5 : 1,
+                  fontWeight: 600,
+                }}
+              >
+                ← Previous
+              </button>
+
+              <span
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "#374151",
+                }}
+              >
+                Page {currentPageIndex + 1} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                className="neu-raised"
+                disabled={currentPageIndex >= totalPages - 1}
+                onClick={() => setCurrentPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  cursor: currentPageIndex >= totalPages - 1 ? "not-allowed" : "pointer",
+                  opacity: currentPageIndex >= totalPages - 1 ? 0.5 : 1,
+                  fontWeight: 600,
+                }}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+
+          <A4Page data={pageData} />
         </div>
       )}
     </>

@@ -1,4 +1,93 @@
 import React from 'react';
+import { renderEquation } from '../lib/notesMode/renderEquation';
+import { CoordinatePlane, Point, LineSegment, Shape } from '../lib/notesMode/diagrams';
+
+function renderContentItem(item, idx) {
+  if (typeof item === 'string') {
+    return <span key={idx}>{item}</span>;
+  }
+  if (!item || typeof item !== 'object') {
+    return <span key={idx}>{String(item)}</span>;
+  }
+
+  if (item.type === 'text') {
+    return <span key={idx}>{item.content ?? item.text ?? ''}</span>;
+  }
+
+  if (item.type === 'equation') {
+    const result = renderEquation(item.latex, { displayMode: item.displayMode ?? false });
+    if (result.error) {
+      return (
+        <span key={idx} style={{ color: '#DC2626', fontWeight: 600 }}>
+          [equation error: {result.message}]
+        </span>
+      );
+    }
+    return <span key={idx} dangerouslySetInnerHTML={{ __html: result.html }} />;
+  }
+
+  if (item.type === 'coordinate_graph') {
+    const planeProps = {};
+    if (item.xRange !== undefined) planeProps.xRange = item.xRange;
+    if (item.yRange !== undefined) planeProps.yRange = item.yRange;
+    if (item.showGrid !== undefined) planeProps.showGrid = item.showGrid;
+    if (item.showAxes !== undefined) planeProps.showAxes = item.showAxes;
+    if (item.width !== undefined) planeProps.width = item.width;
+    if (item.height !== undefined) planeProps.height = item.height;
+    if (item.padding !== undefined) planeProps.padding = item.padding;
+    if (item.gridColor !== undefined) planeProps.gridColor = item.gridColor;
+    if (item.axisColor !== undefined) planeProps.axisColor = item.axisColor;
+    if (item.textColor !== undefined) planeProps.textColor = item.textColor;
+
+    const points = Array.isArray(item.points) ? item.points : [];
+    const segments = Array.isArray(item.segments) ? item.segments : [];
+    const shapes = Array.isArray(item.shapes) ? item.shapes : [];
+
+    return (
+      <div key={idx} style={{ margin: '12px 0', display: 'flex', justifyContent: 'center' }}>
+        <CoordinatePlane {...planeProps}>
+          {shapes.map((shp, sIdx) => {
+            const shpProps = { points: shp.points };
+            if (shp.label !== undefined) shpProps.label = shp.label;
+            if (shp.fillColor !== undefined) shpProps.fillColor = shp.fillColor;
+            if (shp.strokeColor !== undefined) shpProps.strokeColor = shp.strokeColor;
+            if (shp.strokeWidth !== undefined) shpProps.strokeWidth = shp.strokeWidth;
+            if (shp.opacity !== undefined) shpProps.opacity = shp.opacity;
+            if (shp.strokeDasharray !== undefined) shpProps.strokeDasharray = shp.strokeDasharray;
+            if (shp.fontSize !== undefined) shpProps.fontSize = shp.fontSize;
+            return <Shape key={`shape-${sIdx}`} {...shpProps} />;
+          })}
+
+          {segments.map((seg, sIdx) => {
+            const segProps = { from: seg.from, to: seg.to };
+            if (seg.label !== undefined) segProps.label = seg.label;
+            if (seg.color !== undefined) segProps.color = seg.color;
+            if (seg.strokeWidth !== undefined) segProps.strokeWidth = seg.strokeWidth;
+            if (seg.strokeDasharray !== undefined) segProps.strokeDasharray = seg.strokeDasharray;
+            if (seg.fontSize !== undefined) segProps.fontSize = seg.fontSize;
+            return <LineSegment key={`seg-${sIdx}`} {...segProps} />;
+          })}
+
+          {points.map((pt, pIdx) => {
+            const ptProps = { x: pt.x, y: pt.y };
+            if (pt.label !== undefined) ptProps.label = pt.label;
+            if (pt.color !== undefined) ptProps.color = pt.color;
+            if (pt.radius !== undefined) ptProps.radius = pt.radius;
+            if (pt.labelPosition !== undefined) ptProps.labelPosition = pt.labelPosition;
+            if (pt.neighbors !== undefined) ptProps.neighbors = pt.neighbors;
+            if (pt.fontSize !== undefined) ptProps.fontSize = pt.fontSize;
+            if (pt.fontWeight !== undefined) ptProps.fontWeight = pt.fontWeight;
+            return <Point key={`pt-${pIdx}`} {...ptProps} />;
+          })}
+        </CoordinatePlane>
+      </div>
+    );
+  }
+
+  // Fallback for unrecognized types or plain text objects without type
+  const text = item.content ?? item.text ?? JSON.stringify(item);
+  return <span key={idx}>{text}</span>;
+}
 
 function renderContentArray(contentItems) {
   if (!contentItems) return null;
@@ -8,13 +97,7 @@ function renderContentArray(contentItems) {
   if (!Array.isArray(contentItems)) {
     return String(contentItems);
   }
-  return contentItems.map((item, idx) => {
-    if (typeof item === 'string') {
-      return <span key={idx}>{item}</span>;
-    }
-    const text = item?.content ?? item?.text ?? (typeof item === 'object' ? JSON.stringify(item) : String(item));
-    return <span key={idx}>{text}</span>;
-  });
+  return contentItems.map((item, idx) => renderContentItem(item, idx));
 }
 
 export function A4Page({ data }) {
@@ -22,8 +105,8 @@ export function A4Page({ data }) {
 
   const chapterTitle = data.chapter?.title || '';
   const chapterSubtitle = data.chapter?.subtitle || '';
-  const firstPage = data.pages?.[0] || {};
-  const items = firstPage.items || [];
+  const items = data.items || data.pages?.[0]?.items || [];
+  const isOverflow = Boolean(data.isOverflow);
 
   return (
     <div
@@ -77,13 +160,31 @@ export function A4Page({ data }) {
         )}
       </div>
 
+      {/* ── OVERFLOW WARNING BANNER ────────────────────────── */}
+      {isOverflow && (
+        <div
+          style={{
+            backgroundColor: '#FEF3C7',
+            color: '#92400E',
+            border: '1px solid #F59E0B',
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '16px',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+        >
+          Content too large to fit within a single page in this phase
+        </div>
+      )}
+
       {/* ── CONTENT REGION ────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {items.map((item, index) => {
           const qNumber = item.number !== undefined ? item.number : index + 1;
           return (
             <div
-              key={index}
+              key={item.id || index}
               style={{
                 backgroundColor: '#FFFFFF',
                 borderRadius: '12px',
@@ -122,6 +223,7 @@ export function A4Page({ data }) {
                     color: '#1F2937',
                     fontWeight: 500,
                     paddingTop: '3px',
+                    flex: 1,
                   }}
                 >
                   {renderContentArray(item.question)}

@@ -1,4 +1,5 @@
 import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 /**
  * Renders a LaTeX string into a KaTeX DOM element and HTML string.

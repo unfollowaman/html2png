@@ -105,4 +105,85 @@ describe('validateNotesJson', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
+
+  test('Validates equation and coordinate_graph content elements', () => {
+    const docWithNewElements = {
+      chapter: { title: 'Math & Graphs', subtitle: 'Advanced Types' },
+      pages: [
+        {
+          items: [
+            {
+              type: 'question',
+              number: 1,
+              question: [
+                { type: 'text', content: 'Solve:' },
+                { type: 'equation', latex: 'E=mc^2' }
+              ],
+              solution: [
+                {
+                  type: 'coordinate_graph',
+                  xRange: [-5, 5],
+                  yRange: [-5, 5],
+                  points: [{ x: 1, y: 2, label: 'P1' }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    const result = validateNotesJson(docWithNewElements);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  test('Fails on equation missing latex', () => {
+    const badEquationDoc = {
+      chapter: { title: 'Math', subtitle: 'Test' },
+      pages: [
+        {
+          items: [
+            {
+              type: 'question',
+              number: 1,
+              question: [{ type: 'equation' }],
+              solution: []
+            }
+          ]
+        }
+      ]
+    };
+
+    const result = validateNotesJson(badEquationDoc);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(err => err.path === 'pages[0].items[0].question[0].latex')).toBe(true);
+  });
+
+  test('Fails on coordinate_graph point missing y', () => {
+    const badGraphDoc = {
+      chapter: { title: 'Graph', subtitle: 'Test' },
+      pages: [
+        {
+          items: [
+            {
+              type: 'question',
+              number: 1,
+              question: [
+                {
+                  type: 'coordinate_graph',
+                  points: [{ x: 1 }]
+                }
+              ],
+              solution: []
+            }
+          ]
+        }
+      ]
+    };
+
+    const result = validateNotesJson(badGraphDoc);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(err => err.path === 'pages[0].items[0].question[0].points[0].y')).toBe(true);
+  });
 });
