@@ -1,0 +1,43 @@
+import katex from 'katex';
+
+/**
+ * Renders a LaTeX string into a KaTeX DOM element and HTML string.
+ *
+ * @param {string} latex - The LaTeX formula string to render.
+ * @param {Object} [options={}] - Options object.
+ * @param {boolean} [options.displayMode=false] - Render in display/block mode if true, inline mode if false.
+ * @returns {{ error: false, element: HTMLElement, html: string } | { error: true, message: string }} Result object.
+ */
+export function renderEquation(latex, options = {}) {
+  const displayMode = Boolean(options?.displayMode);
+
+  if (typeof latex !== 'string') {
+    return {
+      error: true,
+      message: 'Invalid input: LaTeX expression must be a string.'
+    };
+  }
+
+  try {
+    const html = katex.renderToString(latex, {
+      displayMode,
+      throwOnError: true,
+      trust: false
+    });
+
+    const container = document.createElement('span');
+    container.className = displayMode ? 'rendered-equation display-equation' : 'rendered-equation inline-equation';
+    container.innerHTML = html;
+
+    return {
+      error: false,
+      element: container,
+      html
+    };
+  } catch (err) {
+    return {
+      error: true,
+      message: err.message || 'LaTeX parsing error.'
+    };
+  }
+}
