@@ -5,7 +5,7 @@ import { useNotesToPngConversion } from './useNotesToPngConversion';
 describe('useNotesToPngConversion', () => {
   test('validates valid JSON string', () => {
     const { result } = renderHook(() => useNotesToPngConversion());
-    const validJson = JSON.stringify({ chapter: { title: "Test" }, pages: [] });
+    const validJson = JSON.stringify({ chapter: { title: "Test", subtitle: "Sub" }, pages: [] });
 
     act(() => {
       const res = result.current.validateJson(validJson);
@@ -29,24 +29,42 @@ describe('useNotesToPngConversion', () => {
     expect(result.current.validationSuccess).toBe(null);
   });
 
-  test('generates result for valid JSON', () => {
+  test('generates result for valid JSON', async () => {
     const { result } = renderHook(() => useNotesToPngConversion());
-    const jsonObj = { chapter: { title: "Ch1" }, pages: [{ items: [] }] };
+    const jsonObj = { chapter: { title: "Ch1", subtitle: "Sub" }, pages: [{ items: [] }] };
 
-    act(() => {
-      result.current.handleGenerate(JSON.stringify(jsonObj));
+    await act(async () => {
+      await result.current.handleGenerate(JSON.stringify(jsonObj));
     });
 
-    expect(result.current.result).toEqual(jsonObj);
+    expect(result.current.result).toEqual({
+      chapter: { title: "Ch1", subtitle: "Sub" },
+      pages: [],
+      totalPages: 0
+    });
     expect(result.current.validationError).toBe(null);
   });
 
-  test('resets state properly', () => {
+  test('resets state properly', async () => {
     const { result } = renderHook(() => useNotesToPngConversion());
-    const jsonObj = { chapter: { title: "Ch1" }, pages: [] };
+    const jsonObj = {
+      chapter: { title: "Ch1", subtitle: "Sub" },
+      pages: [
+        {
+          items: [
+            {
+              type: "question",
+              number: 1,
+              question: [{ type: "text", content: "Q1" }],
+              solution: [{ type: "text", content: "S1" }]
+            }
+          ]
+        }
+      ]
+    };
 
-    act(() => {
-      result.current.handleGenerate(JSON.stringify(jsonObj));
+    await act(async () => {
+      await result.current.handleGenerate(JSON.stringify(jsonObj));
     });
     expect(result.current.result).toBeTruthy();
 

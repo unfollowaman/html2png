@@ -120,7 +120,7 @@ function validateQuestionItem(item, itemPath, errors) {
 }
 
 /**
- * Validates inline content elements (Phase 1 supports "text" type).
+ * Validates inline content elements ("text", "equation", "coordinate_graph").
  */
 function validateContentElement(elem, elemPath, errors) {
   if (!elem || typeof elem !== 'object' || Array.isArray(elem)) {
@@ -128,11 +128,55 @@ function validateContentElement(elem, elemPath, errors) {
     return;
   }
 
-  if (elem.type !== 'text') {
-    errors.push({ path: `${elemPath}.type`, message: `Unrecognized content element type: "${elem.type}". Phase 1 supports "text".` });
+  const ALLOWED_TYPES = new Set(['text', 'equation', 'coordinate_graph']);
+
+  if (typeof elem.type !== 'string' || !ALLOWED_TYPES.has(elem.type)) {
+    errors.push({ path: `${elemPath}.type`, message: `Unrecognized content element type: "${elem.type}".` });
+    return;
   }
 
-  if (typeof elem.content !== 'string') {
-    errors.push({ path: `${elemPath}.content`, message: 'Field "content" is required and must be a string' });
+  if (elem.type === 'text') {
+    if (typeof elem.content !== 'string') {
+      errors.push({ path: `${elemPath}.content`, message: 'Field "content" is required and must be a string' });
+    }
+  } else if (elem.type === 'equation') {
+    if (typeof elem.latex !== 'string') {
+      errors.push({ path: `${elemPath}.latex`, message: 'Field "latex" is required and must be a string' });
+    }
+  } else if (elem.type === 'coordinate_graph') {
+    if (elem.points !== undefined) {
+      if (!Array.isArray(elem.points)) {
+        errors.push({ path: `${elemPath}.points`, message: 'Field "points" must be an array' });
+      } else {
+        elem.points.forEach((pt, pIdx) => {
+          const ptPath = `${elemPath}.points[${pIdx}]`;
+          if (!pt || typeof pt !== 'object' || Array.isArray(pt)) {
+            errors.push({ path: ptPath, message: 'Point must be an object' });
+            return;
+          }
+          if (typeof pt.x !== 'number') {
+            errors.push({ path: `${ptPath}.x`, message: 'Field "x" is required and must be a number' });
+          }
+          if (typeof pt.y !== 'number') {
+            errors.push({ path: `${ptPath}.y`, message: 'Field "y" is required and must be a number' });
+          }
+          if (pt.label !== undefined && typeof pt.label !== 'string') {
+            errors.push({ path: `${ptPath}.label`, message: 'Field "label" must be a string' });
+          }
+        });
+      }
+    }
+
+    if (elem.xRange !== undefined) {
+      if (!Array.isArray(elem.xRange) || elem.xRange.length !== 2 || typeof elem.xRange[0] !== 'number' || typeof elem.xRange[1] !== 'number') {
+        errors.push({ path: `${elemPath}.xRange`, message: 'Field "xRange" must be a 2-element numeric array' });
+      }
+    }
+
+    if (elem.yRange !== undefined) {
+      if (!Array.isArray(elem.yRange) || elem.yRange.length !== 2 || typeof elem.yRange[0] !== 'number' || typeof elem.yRange[1] !== 'number') {
+        errors.push({ path: `${elemPath}.yRange`, message: 'Field "yRange" must be a 2-element numeric array' });
+      }
+    }
   }
 }

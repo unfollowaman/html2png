@@ -57,7 +57,19 @@ export function measureHeight(element, containerCss = null, unit = 'mm') {
   // Append target element for measurement
   container.appendChild(element);
   const rect = element.getBoundingClientRect();
-  const heightPx = rect.height;
+  let heightPx = rect.height;
+
+  // Fallback for non-layout environments (like JSDOM tests without custom getBoundingClientRect)
+  if ((!heightPx || heightPx === 0) && element.style.height) {
+    const parsedH = parseFloat(element.style.height);
+    if (!isNaN(parsedH)) {
+      if (element.style.height.endsWith('mm')) {
+        heightPx = parsedH * pxPerMm;
+      } else if (element.style.height.endsWith('px')) {
+        heightPx = parsedH;
+      }
+    }
+  }
 
   // Clean up DOM nodes immediately
   if (element.parentNode === container) {
