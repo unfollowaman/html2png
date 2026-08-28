@@ -50,12 +50,17 @@ export function CoordinatePlane({
   return (
     <CoordinateContext.Provider value={transformers}>
       <svg
-        width={width}
-        height={height}
         viewBox={`0 0 ${width} ${height}`}
         xmlns="http://www.w3.org/2000/svg"
         className="coordinate-plane"
-        style={{ fontFamily: 'sans-serif', backgroundColor: '#ffffff', display: 'block' }}
+        style={{
+          width: '100%',
+          height: 'auto',
+          maxWidth: `${width}px`,
+          display: 'block',
+          fontFamily: 'sans-serif',
+          backgroundColor: '#ffffff'
+        }}
       >
         <defs>
           <marker
