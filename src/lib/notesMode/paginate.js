@@ -182,3 +182,150 @@ export function paginate(items = [], options = {}) {
     scheduleNextTick(processChunk);
   });
 }
+
+/**
+ * Paginates an array of DOM items into pages formatted as a multi-column grid per page (e.g. 2 columns).
+ * Row height is determined as Math.max(itemHeightsInRow).
+ *
+ * Handle oversized edge cases:
+ * - If an item's individual height > usableHeightPerPage, it is placed in overflowItems alone.
+ * - If pairing two adjacent items in sequence would cause row height > usableHeightPerPage
+ *   because of an oversized second item alone, break pairing so the second item goes to overflowItems
+ *   and the first item is re-paired with the following item in sequence.
+ *
+ * @param {Array<{id: string|number, element: HTMLElement}>} items - List of items with unique id and renderable DOM element.
+ * @param {Object} options - Pagination options.
+ * @param {number} options.usableHeightPerPage - Usable height per page in target unit.
+ * @param {number} [options.columnsPerRow=2] - Number of columns per grid row.
+ * @param {number} [options.rowGap=3.7] - Vertical gap between grid rows in target unit (e.g., 14px in mm ~ 3.7mm).
+ * @param {string} [options.unit='mm'] - Unit ('mm' or 'px').
+ * @param {Object|string} [options.containerCss] - CSS options for measurement.
+ * @param {number} [options.chunkSize=5] - Execution chunk size.
+ * @param {Function} [options.onProgress] - Callback on chunk progress.
+ * @returns {Promise<{pages: Array<Array<string|number>>, overflowItems: Array<string|number>}>}
+ */
+export function paginateRows(items = [], options = {}) {
+  const {
+    usableHeightPerPage,
+    columnsPerRow = 2,
+    rowGap = 3.7,
+    unit = 'mm',
+    containerCss = null,
+    chunkSize = 5,
+    onProgress = null,
+  } = options;
+
+  if (typeof usableHeightPerPage !== 'number' || usableHeightPerPage <= 0) {
+    throw new Error('paginateRows: usableHeightPerPage must be a positive number');
+  }
+
+  return new Promise((resolve) => {
+    if (!items || items.length === 0) {
+      resolve({ pages: [], overflowItems: [] });
+      return;
+    }
+
+    const measuredItems = items.map((item) => ({
+      id: item.id,
+      height: measureHeight(item.element, containerCss, unit),
+      rawItem: item,
+    }));
+
+    const pages = [];
+    const overflowItems = [];
+    const eligibleItems = [];
+
+    // Filter individually oversized items first
+    for (const item of measuredItems) {
+      if (item.height > usableHeightPerPage) {
+        overflowItems.push(item.id);
+      } else {
+        eligibleItems.push(item);
+      }
+    }
+
+    // Pair items into rows
+    const rows = [];
+    let i = 0;
+    while (i < eligibleItems.length) {
+      if (columnsPerRow === 1 || i === eligibleItems.length - 1) {
+        // Single item in row
+        rows.push({
+          items: [eligibleItems[i]],
+          height: eligibleItems[i].height,
+        });
+        i += 1;
+      } else {
+        // Pair two adjacent items
+        const itemA = eligibleItems[i];
+        const itemB = eligibleItems[i + 1];
+
+        // If itemB alone would be oversized (though already checked) or pairing creates a row > budget
+        // because itemB is oversized on its own, handle gracefully.
+        const rowHeight = Math.max(itemA.height, itemB.height);
+
+        if (rowHeight > usableHeightPerPage) {
+          // If itemB is the one causing overflow (> usable budget), remove itemB to overflowItems,
+          // and attempt to pair itemA with itemB's successor (i+2) on next iteration.
+          if (itemB.height > usableHeightPerPage) {
+            overflowItems.push(itemB.id);
+            eligibleItems.splice(i + 1, 1);
+            // Re-eval i on next loop with new eligibleItems[i+1]
+            continue;
+          } else if (itemA.height > usableHeightPerPage) {
+            overflowItems.push(itemA.id);
+            eligibleItems.splice(i, 1);
+            continue;
+          }
+        }
+
+        rows.push({
+          items: [itemA, itemB],
+          height: rowHeight,
+        });
+        i += 2;
+      }
+    }
+
+    // Pack rows into pages
+    const EPSILON = 1e-5;
+    let currentPageItemIds = [];
+    let currentHeight = 0;
+
+    let rowIndex = 0;
+    const processChunk = () => {
+      const end = Math.min(rowIndex + chunkSize, rows.length);
+
+      for (; rowIndex < end; rowIndex++) {
+        const row = rows[rowIndex];
+        const addedHeight = currentPageItemIds.length > 0 ? row.height + rowGap : row.height;
+
+        if (currentPageItemIds.length > 0 && currentHeight + addedHeight <= usableHeightPerPage + EPSILON) {
+          row.items.forEach((it) => currentPageItemIds.push(it.id));
+          currentHeight += addedHeight;
+        } else {
+          if (currentPageItemIds.length > 0) {
+            pages.push(currentPageItemIds);
+          }
+          currentPageItemIds = row.items.map((it) => it.id);
+          currentHeight = row.height;
+        }
+      }
+
+      if (typeof onProgress === 'function') {
+        onProgress({ processed: rowIndex, total: rows.length });
+      }
+
+      if (rowIndex < rows.length) {
+        scheduleNextTick(processChunk);
+      } else {
+        if (currentPageItemIds.length > 0) {
+          pages.push(currentPageItemIds);
+        }
+        resolve({ pages, overflowItems });
+      }
+    };
+
+    scheduleNextTick(processChunk);
+  });
+}

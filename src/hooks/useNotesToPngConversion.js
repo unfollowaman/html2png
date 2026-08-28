@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { validateNotesJson } from '../lib/notesMode/validateSchema';
-import { paginate } from '../lib/notesMode/paginate';
+import { paginateRows } from '../lib/notesMode/paginate';
 import { QuestionSolutionCard } from '../components/NotesModeCard';
 
 export function useNotesToPngConversion({ outputRef } = {}) {
@@ -120,9 +120,11 @@ export function useNotesToPngConversion({ outputRef } = {}) {
       // Total usable height per page = 297 - 36 - 12 - 24 = 225mm
       const usableHeightPerPage = 225;
 
-      // Create DOM elements for measurement using real rendered markup from QuestionSolutionCard
+      // In 2-column layout: total content width = 174mm (210mm - 36mm padding).
+      // Gap between columns = 14px (approx 3.7mm at 96 DPI).
+      // Width of each column cell = (174mm - 3.7mm) / 2 = 85.15mm (approx 80-85mm).
       const containerCss = {
-        width: '174mm', // 210mm - 36mm padding (matching A4 page content region)
+        width: '80mm',
         boxSizing: 'border-box',
         fontFamily: "'Montserrat', sans-serif",
       };
@@ -165,8 +167,10 @@ export function useNotesToPngConversion({ outputRef } = {}) {
         };
       });
 
-      const { pages: pageItemIds, overflowItems } = await paginate(itemsToMeasure, {
+      const { pages: pageItemIds, overflowItems } = await paginateRows(itemsToMeasure, {
         usableHeightPerPage,
+        columnsPerRow: 2,
+        rowGap: 3.7,
         unit: 'mm',
         containerCss
       });
