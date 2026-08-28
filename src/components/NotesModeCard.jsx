@@ -44,7 +44,7 @@ export function renderContentItem(item, idx) {
     const shapes = Array.isArray(item.shapes) ? item.shapes : [];
 
     return (
-      <div key={idx} style={{ margin: '12px 0', display: 'flex', justifyContent: 'center' }}>
+      <div key={idx} style={{ margin: '12px 0', display: 'flex', justifyContent: 'center', maxWidth: '100%', overflow: 'hidden' }}>
         <CoordinatePlane {...planeProps}>
           {shapes.map((shp, sIdx) => {
             const shpProps = { points: shp.points };
@@ -117,6 +117,7 @@ export function QuestionSolutionCard({ item, questionNumber }) {
         borderRight: '1px solid #F3F4F6',
         borderBottom: '1px solid #F3F4F6',
         boxSizing: 'border-box',
+        minWidth: 0,
       }}
     >
       {/* Question Row */}
