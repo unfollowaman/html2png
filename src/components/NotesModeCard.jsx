@@ -109,41 +109,42 @@ export function QuestionSolutionCard({ item, questionNumber }) {
       style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '12px',
-        padding: '20px',
+        padding: '14px',
         borderLeft: '4px solid #7C3AED',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-        marginBottom: '16px',
+        marginBottom: '0px',
         borderTop: '1px solid #F3F4F6',
         borderRight: '1px solid #F3F4F6',
         borderBottom: '1px solid #F3F4F6',
+        boxSizing: 'border-box',
       }}
     >
       {/* Question Row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
         <div
           style={{
             backgroundColor: '#7C3AED',
             color: '#FFFFFF',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
+            borderRadius: '8px',
+            width: '28px',
+            height: '28px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
             fontWeight: 700,
-            fontSize: '14px',
+            fontSize: '13px',
           }}
         >
           {qNumber}
         </div>
         <div
           style={{
-            fontSize: '15px',
-            lineHeight: 1.6,
+            fontSize: '14px',
+            lineHeight: 1.5,
             color: '#1F2937',
             fontWeight: 500,
-            paddingTop: '3px',
+            paddingTop: '2px',
             flex: 1,
           }}
         >
@@ -155,35 +156,44 @@ export function QuestionSolutionCard({ item, questionNumber }) {
       {item.solution && (
         <div
           style={{
+            position: 'relative',
             backgroundColor: '#FFFFFF',
-            borderRadius: '12px',
-            padding: '20px',
+            borderRadius: '10px',
+            padding: '12px 14px',
             borderLeft: '4px solid #16A34A',
             boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-            marginTop: '12px',
+            marginTop: '16px',
             borderTop: '1px solid #F3F4F6',
             borderRight: '1px solid #F3F4F6',
             borderBottom: '1px solid #F3F4F6',
+            boxSizing: 'border-box',
           }}
         >
           <div
             style={{
-              display: 'flex',
+              position: 'absolute',
+              top: '-11px',
+              left: '10px',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              color: '#16A34A',
+              gap: '4px',
+              backgroundColor: '#16A34A',
+              color: '#FFFFFF',
+              borderRadius: '6px',
+              padding: '2px 8px',
+              fontSize: '11px',
               fontWeight: 600,
-              fontSize: '13px',
               letterSpacing: '0.02em',
-              marginBottom: '8px',
+              lineHeight: 1.2,
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
             }}
           >
             <svg
-              width="16"
-              height="16"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#16A34A"
+              stroke="#FFFFFF"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -194,9 +204,10 @@ export function QuestionSolutionCard({ item, questionNumber }) {
           </div>
           <div
             style={{
-              fontSize: '14px',
-              lineHeight: 1.6,
+              fontSize: '13px',
+              lineHeight: 1.5,
               color: '#374151',
+              paddingTop: '4px',
             }}
           >
             {renderContentArray(item.solution)}

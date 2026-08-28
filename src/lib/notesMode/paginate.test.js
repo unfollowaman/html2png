@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { measureHeight, paginate } from './paginate';
+import { measureHeight, paginate, paginateRows } from './paginate';
 
 /**
  * Helper to create a mock DOM element with specified height.
@@ -144,5 +144,115 @@ describe('paginate & measureHeight standalone module', () => {
     expect(result.pages.length).toBe(9);
     expect(progressSpy).toHaveBeenCalled();
     expect(progressSpy).toHaveBeenLastCalledWith({ processed: 50, total: 50 });
+  });
+});
+
+describe('paginateRows 2-column row packing', () => {
+  test('Requirement Test Case 1: 8 short items render into 2-column rows (4 rows x 2 cols)', async () => {
+    const items = Array.from({ length: 8 }, (_, i) => ({
+      id: `item-${i + 1}`,
+      element: createMockElement(30),
+    }));
+
+    const result = await paginateRows(items, {
+      usableHeightPerPage: 225,
+      columnsPerRow: 2,
+      rowGap: 3.7,
+      unit: 'mm',
+    });
+
+    expect(result.overflowItems).toEqual([]);
+    expect(result.pages.length).toBe(1);
+    expect(result.pages[0]).toEqual(['item-1', 'item-2', 'item-3', 'item-4', 'item-5', 'item-6', 'item-7', 'item-8']);
+  });
+
+  test('Requirement Test Case 2: 7 short items render into 3 full rows + 1 single-column row', async () => {
+    const items = Array.from({ length: 7 }, (_, i) => ({
+      id: `item-${i + 1}`,
+      element: createMockElement(30),
+    }));
+
+    const result = await paginateRows(items, {
+      usableHeightPerPage: 225,
+      columnsPerRow: 2,
+      rowGap: 3.7,
+      unit: 'mm',
+    });
+
+    expect(result.overflowItems).toEqual([]);
+    expect(result.pages.length).toBe(1);
+    expect(result.pages[0]).toEqual(['item-1', 'item-2', 'item-3', 'item-4', 'item-5', 'item-6', 'item-7']);
+  });
+
+  test('Requirement Test Case 3: Row with one oversized item and one short item re-pairs short item without dropping it', async () => {
+    const items = [
+      { id: 'short1', element: createMockElement(30) },
+      { id: 'oversized', element: createMockElement(300) }, // 300mm exceeds 225mm budget
+      { id: 'short2', element: createMockElement(30) },
+      { id: 'short3', element: createMockElement(30) },
+    ];
+
+    const result = await paginateRows(items, {
+      usableHeightPerPage: 225,
+      columnsPerRow: 2,
+      rowGap: 3.7,
+      unit: 'mm',
+    });
+
+    // Confirm only genuinely oversized item is in overflowItems
+    expect(result.overflowItems).toEqual(['oversized']);
+
+    // Confirm short1 is re-paired with short2, followed by short3
+    const allPageItems = result.pages.flat();
+    expect(allPageItems).toEqual(['short1', 'short2', 'short3']);
+
+    // Total count conservation
+    const totalCount = allPageItems.length + result.overflowItems.length;
+    expect(totalCount).toBe(items.length);
+  });
+
+  test('Requirement Test Case 4: Item conservation — total items across pages + overflow equals input item count', async () => {
+    // Test document A (15 items)
+    const docA = Array.from({ length: 15 }, (_, i) => ({
+      id: `docA-${i + 1}`,
+      element: createMockElement(40 + (i % 3) * 20),
+    }));
+
+    const resultA = await paginateRows(docA, {
+      usableHeightPerPage: 100,
+      columnsPerRow: 2,
+      rowGap: 3.7,
+      unit: 'mm',
+    });
+
+    const totalA = resultA.pages.flat().length + resultA.overflowItems.length;
+    expect(totalA).toBe(docA.length);
+
+    // Test document B (23 items with an oversized item)
+    const docB = Array.from({ length: 23 }, (_, i) => ({
+      id: `docB-${i + 1}`,
+      element: createMockElement(i === 5 ? 250 : 25 + (i % 4) * 15),
+    }));
+
+    const resultB = await paginateRows(docB, {
+      usableHeightPerPage: 100,
+      columnsPerRow: 2,
+      rowGap: 3.7,
+      unit: 'mm',
+    });
+
+    const totalB = resultB.pages.flat().length + resultB.overflowItems.length;
+    expect(totalB).toBe(docB.length);
+  });
+
+  test('Requirement Test Case 6: Confirm original paginate() signature retains backward compatibility', async () => {
+    const items = [
+      { id: 'p1', element: createMockElement(50) },
+      { id: 'p2', element: createMockElement(60) },
+    ];
+
+    const res = await paginate(items, { usableHeightPerPage: 100, unit: 'mm' });
+    expect(res.pages).toEqual([['p1'], ['p2']]);
+    expect(res.overflowItems).toEqual([]);
   });
 });

@@ -80,7 +80,16 @@ export function A4Page({ data }) {
       )}
 
       {/* ── CONTENT REGION ────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '14px',
+          alignContent: 'start',
+        }}
+      >
         {items.map((item, index) => {
           const qNumber = item.number !== undefined ? item.number : index + 1;
           return (
