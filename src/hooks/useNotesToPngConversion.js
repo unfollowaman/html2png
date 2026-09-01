@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { validateNotesJson } from '../lib/notesMode/validateSchema';
-import { paginateRows } from '../lib/notesMode/paginate';
+import { measureHeight, paginateRows } from '../lib/notesMode/paginate';
 import { QuestionSolutionCard } from '../components/NotesModeCard';
 
 export function useNotesToPngConversion({ outputRef } = {}) {
@@ -165,6 +165,11 @@ export function useNotesToPngConversion({ outputRef } = {}) {
           element: targetElement,
           rawItem: item
         };
+      });
+
+      itemsToMeasure.forEach((item) => {
+        const height = measureHeight(item.element, containerCss);
+        console.log('NOTES_MODE_HEIGHT_DEBUG', item.id, height);
       });
 
       const { pages: pageItemIds, overflowItems } = await paginateRows(itemsToMeasure, {
