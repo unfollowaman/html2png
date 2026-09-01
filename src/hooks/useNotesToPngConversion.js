@@ -174,6 +174,7 @@ export function useNotesToPngConversion({ outputRef } = {}) {
         unit: 'mm',
         containerCss
       });
+      console.log('NOTES_MODE_DEBUG', JSON.stringify({ items: itemsToMeasure.map(i => ({ id: i.id, heightMm: i.heightMm })), result: { pages: pageItemIds, overflowItems } }));
 
       if (myRequestId !== latestRequestIdRef.current) return;
 
