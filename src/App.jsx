@@ -7,8 +7,21 @@ const HtmlConverter = React.lazy(() => import("./components/HtmlConverter"));
 const MermaidConverter = React.lazy(() => import("./components/MermaidConverter"));
 const LatexConverter = React.lazy(() => import("./components/LatexConverter"));
 const NotesConverter = React.lazy(() => import("./components/NotesConverter"));
+const NotesModeSpike = React.lazy(() => import("./components/NotesModeSpike"));
 
 export default function App() {
+  const isSpikeRoute = typeof window !== "undefined" && (
+    window.location.pathname.endsWith("/notes-mode-spike") ||
+    window.location.search.includes("spike=true")
+  );
+
+  if (isSpikeRoute) {
+    return (
+      <Suspense fallback={<div style={{ padding: '24px', fontFamily: 'sans-serif' }}>Loading Spike Prototype...</div>}>
+        <NotesModeSpike />
+      </Suspense>
+    );
+  }
   const outputRef = useRef(null);
   const inputRef = useRef(null);
   const htmlConverterRef = useRef(null);
