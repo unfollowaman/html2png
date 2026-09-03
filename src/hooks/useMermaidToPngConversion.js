@@ -153,7 +153,8 @@ export function useMermaidToPngConversion({ outputRef }) {
                 await document.fonts.load(spec);
               }
             } catch (e) {
-              // Ignore font load errors for specific specimens
+              // Ignore font load errors for specific specimens so diagram conversion can proceed with fallback typography
+              console.warn(`Failed to load font specimen "${spec}":`, e);
             }
           });
 
