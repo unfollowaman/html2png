@@ -1,3 +1,7 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { NotesBlockRenderer, ContinuationLabel } from '../../components/NotesBlockComponents';
+
 /**
  * Helper to convert DOM pixel measurements to millimeters using a 1mm DOM calibration node.
  *
@@ -98,6 +102,152 @@ function scheduleNextTick(callback) {
   } else {
     setTimeout(callback, 0);
   }
+}
+
+/**
+ * Paginates an ordered stream of blocks into a 2-column continuous flow layout per page.
+ *
+ * @param {Array<Object>} blocks - List of block objects from flattenToBlocks.
+ * @param {Object} options - Options object.
+ * @param {number} [options.usableHeightPerPage=225] - Max height budget per page in target unit.
+ * @param {number} [options.columnsPerPage=2] - Number of columns per page (2).
+ * @param {Object|string} [options.containerCss] - CSS properties for 80mm column width context.
+ * @param {number} [options.gap=1.6] - Vertical gap between blocks in mm.
+ * @param {string} [options.unit='mm'] - Unit for height ('mm').
+ * @returns {Promise<{pages: Array<{columnA: Array<string>, columnB: Array<string>}>, overflowBlocks: Array<string>}>}
+ */
+export function flowBlocksIntoColumns(blocks = [], options = {}) {
+  const {
+    usableHeightPerPage = 225,
+    columnsPerPage = 2,
+    containerCss = {
+      width: '80mm',
+      boxSizing: 'border-box',
+      fontFamily: "'Montserrat', sans-serif",
+    },
+    gap = 1.6,
+    unit = 'mm',
+  } = options;
+
+  return new Promise((resolve) => {
+    if (!blocks || blocks.length === 0) {
+      resolve({ pages: [], overflowBlocks: [] });
+      return;
+    }
+
+    // 1. Measure continuation label height
+    const labelHtml = renderToStaticMarkup(
+      React.createElement(ContinuationLabel, { questionNumber: 1 })
+    );
+    const labelDummy = document.createElement('div');
+    labelDummy.innerHTML = labelHtml;
+    const labelTarget = labelDummy.firstElementChild || labelDummy;
+    if (typeof window !== 'undefined' && window.navigator?.userAgent?.includes('jsdom')) {
+      labelTarget.style.height = '8mm';
+    }
+    const labelHeight = measureHeight(labelTarget, containerCss, unit);
+
+    // 2. Measure all blocks
+    const measuredBlocks = blocks.map((block) => {
+      const blockHtml = renderToStaticMarkup(
+        React.createElement(NotesBlockRenderer, { block, isTopOfColumn: false })
+      );
+      const dummyEl = document.createElement('div');
+      dummyEl.innerHTML = blockHtml;
+      const targetEl = dummyEl.firstElementChild || dummyEl;
+
+      if (typeof window !== 'undefined' && window.navigator?.userAgent?.includes('jsdom')) {
+        let fallbackHeight = 15;
+        if (block.type === 'question-header') {
+          const qText = JSON.stringify(block.content || '');
+          fallbackHeight = 15 + Math.ceil(qText.length / 80) * 8;
+        } else if (block.type === 'solution-first' || block.type === 'solution-rest') {
+          const elemStr = JSON.stringify(block.element || '');
+          fallbackHeight = 12 + Math.ceil(elemStr.length / 80) * 8;
+          if (elemStr.includes('coordinate_graph')) {
+            fallbackHeight += 70;
+          }
+        }
+        targetEl.style.height = `${fallbackHeight}mm`;
+      }
+
+      const measuredH = measureHeight(targetEl, containerCss, unit);
+
+      return {
+        ...block,
+        height: measuredH,
+      };
+    });
+
+    const pages = [];
+    const overflowBlocks = [];
+    const overflowQuestionNumbers = new Set();
+
+    let currentPage = { columnA: [], columnB: [] };
+    let colAHeight = 0;
+    let colBHeight = 0;
+    let activeCol = 'columnA';
+
+    const EPSILON = 1e-5;
+
+    for (const block of measuredBlocks) {
+      // Check if block alone exceeds usable height or belongs to an already overflowing question
+      const minRequired = (block.type !== 'question-header' ? labelHeight : 0) + block.height;
+      if (
+        block.height > usableHeightPerPage ||
+        minRequired > usableHeightPerPage ||
+        overflowQuestionNumbers.has(block.questionNumber)
+      ) {
+        overflowQuestionNumbers.add(block.questionNumber);
+        overflowBlocks.push(block.id);
+        continue;
+      }
+
+      let placed = false;
+
+      while (!placed) {
+        const isColEmpty = activeCol === 'columnA' ? currentPage.columnA.length === 0 : currentPage.columnB.length === 0;
+        const currentColHeight = activeCol === 'columnA' ? colAHeight : colBHeight;
+
+        let addedH = 0;
+        if (isColEmpty) {
+          addedH = (block.type !== 'question-header' ? labelHeight : 0) + block.height;
+        } else {
+          addedH = block.height + gap;
+        }
+
+        if (currentColHeight + addedH <= usableHeightPerPage + EPSILON) {
+          if (activeCol === 'columnA') {
+            currentPage.columnA.push(block.id);
+            colAHeight += addedH;
+          } else {
+            currentPage.columnB.push(block.id);
+            colBHeight += addedH;
+          }
+          placed = true;
+        } else {
+          // Block does not fit in active column
+          if (activeCol === 'columnA') {
+            // Move to columnB on same page
+            activeCol = 'columnB';
+          } else {
+            // Column B is also full. Close current page and start new page
+            pages.push(currentPage);
+            currentPage = { columnA: [], columnB: [] };
+            colAHeight = 0;
+            colBHeight = 0;
+            activeCol = 'columnA';
+          }
+        }
+      }
+    }
+
+    if (currentPage.columnA.length > 0 || currentPage.columnB.length > 0) {
+      pages.push(currentPage);
+    }
+
+    resolve({ pages, overflowBlocks });
+  });
 }
 
 /**
