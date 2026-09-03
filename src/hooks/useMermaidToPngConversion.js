@@ -177,7 +177,7 @@ export function useMermaidToPngConversion({ outputRef }) {
       const mermaidModule = await import('mermaid');
       const mermaid = mermaidModule.default || mermaidModule;
       // Initialize with htmlLabels: false to prevent Canvas tainting from <foreignObject> tags on Chrome.
-      mermaid.initialize({ startOnLoad: false, htmlLabels: true, securityLevel: 'loose' });
+      mermaid.initialize({ startOnLoad: false, htmlLabels: true, securityLevel: 'strict' });
 
       // Step 3: Render SVG
       const uniqueId = 'mermaid-' + crypto.randomUUID();

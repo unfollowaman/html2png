@@ -1,6 +1,49 @@
 import { describe, it, expect } from 'vitest';
 import { arrayBufferToBase64 } from './useMermaidToPngConversion';
 
+import { vi } from 'vitest';
+
+import { renderHook, act } from '@testing-library/react';
+
+describe('useMermaidToPngConversion security configuration', () => {
+  it('initializes Mermaid with securityLevel set to strict', async () => {
+    // Mock fetch for font loading
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(8),
+    });
+
+    // Mock Image
+    globalThis.Image = class {
+      constructor() {
+        setTimeout(() => this.onload && this.onload(), 10);
+      }
+    };
+
+    const mermaidModule = await import('mermaid');
+    const mermaid = mermaidModule.default || mermaidModule;
+    const initializeSpy = vi.spyOn(mermaid, 'initialize').mockImplementation(() => {});
+    vi.spyOn(mermaid, 'render').mockResolvedValue({
+      svg: '<svg viewBox="0 0 100 100"></svg>',
+    });
+
+    const { useMermaidToPngConversion } = await import('./useMermaidToPngConversion.js');
+    const ref = { current: null };
+
+    const { result } = renderHook(() => useMermaidToPngConversion({ outputRef: ref }));
+
+    await act(async () => {
+      await result.current.handleConvert('graph TD; A-->B;');
+    });
+
+    expect(initializeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        securityLevel: 'strict',
+      })
+    );
+  });
+});
+
 describe('arrayBufferToBase64', () => {
   it('correctly converts empty ArrayBuffer', () => {
     const buffer = new Uint8Array([]).buffer;
