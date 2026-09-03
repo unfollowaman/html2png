@@ -1,5 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { validateNotesJson } from '../lib/notesMode/validateSchema';
 import { measureHeight, paginateRows } from '../lib/notesMode/paginate';
