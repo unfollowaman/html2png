@@ -80,21 +80,20 @@ export function useNotesToPngConversion({ outputRef } = {}) {
       }
 
       // Flatten items from all pages in order
-      const flattenedItems = [];
       let itemCounter = 0;
-      if (Array.isArray(parsed.pages)) {
-        parsed.pages.forEach(page => {
-          if (Array.isArray(page.items)) {
-            page.items.forEach(item => {
-              itemCounter += 1;
-              flattenedItems.push({
-                ...item,
-                id: item.id || `item-${itemCounter}`
-              });
-            });
-          }
-        });
-      }
+      const flattenedItems = Array.isArray(parsed.pages)
+        ? parsed.pages.flatMap(page =>
+            Array.isArray(page?.items)
+              ? page.items.map(item => {
+                  itemCounter += 1;
+                  return {
+                    ...item,
+                    id: item.id || `item-${itemCounter}`
+                  };
+                })
+              : []
+          )
+        : [];
 
       if (flattenedItems.length === 0) {
         if (myRequestId === latestRequestIdRef.current) {
