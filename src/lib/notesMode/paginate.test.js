@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { measureHeight, paginate, paginateRows } from './paginate';
+import { measureHeight, paginate, paginateRows, flowBlocksIntoColumns } from './paginate';
 
 /**
  * Helper to create a mock DOM element with specified height.
@@ -254,5 +254,40 @@ describe('paginateRows 2-column row packing', () => {
     const res = await paginate(items, { usableHeightPerPage: 100, unit: 'mm' });
     expect(res.pages).toEqual([['p1'], ['p2']]);
     expect(res.overflowItems).toEqual([]);
+  });
+});
+
+describe('empty items edge cases for pagination functions', () => {
+  test('paginate handles empty array, null, and undefined items', async () => {
+    const resEmpty = await paginate([], { usableHeightPerPage: 100 });
+    expect(resEmpty).toEqual({ pages: [], overflowItems: [] });
+
+    const resNull = await paginate(null, { usableHeightPerPage: 100 });
+    expect(resNull).toEqual({ pages: [], overflowItems: [] });
+
+    const resUndefined = await paginate(undefined, { usableHeightPerPage: 100 });
+    expect(resUndefined).toEqual({ pages: [], overflowItems: [] });
+  });
+
+  test('paginateRows handles empty array, null, and undefined items', async () => {
+    const resEmpty = await paginateRows([], { usableHeightPerPage: 100 });
+    expect(resEmpty).toEqual({ pages: [], overflowItems: [] });
+
+    const resNull = await paginateRows(null, { usableHeightPerPage: 100 });
+    expect(resNull).toEqual({ pages: [], overflowItems: [] });
+
+    const resUndefined = await paginateRows(undefined, { usableHeightPerPage: 100 });
+    expect(resUndefined).toEqual({ pages: [], overflowItems: [] });
+  });
+
+  test('flowBlocksIntoColumns handles empty array, null, and undefined blocks', async () => {
+    const resEmpty = await flowBlocksIntoColumns([], { usableHeightPerPage: 225 });
+    expect(resEmpty).toEqual({ pages: [], overflowBlocks: [] });
+
+    const resNull = await flowBlocksIntoColumns(null, { usableHeightPerPage: 225 });
+    expect(resNull).toEqual({ pages: [], overflowBlocks: [] });
+
+    const resUndefined = await flowBlocksIntoColumns(undefined, { usableHeightPerPage: 225 });
+    expect(resUndefined).toEqual({ pages: [], overflowBlocks: [] });
   });
 });
