@@ -186,4 +186,16 @@ describe('validateNotesJson', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some(err => err.path === 'pages[0].items[0].question[0].points[0].y')).toBe(true);
   });
+
+  test('Fails on completely invalid root document inputs', () => {
+    const invalidInputs = [null, undefined, 'invalid string', ['an', 'array'], 123, true];
+
+    invalidInputs.forEach(input => {
+      const result = validateNotesJson(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual([
+        { path: '', message: 'Root document must be a JSON object' }
+      ]);
+    });
+  });
 });
