@@ -49,4 +49,15 @@ describe('renderEquation LaTeX-to-rendered-equation utility', () => {
       expect(res.message).toMatch(/KaTeX parse error/i);
     }).not.toThrow();
   });
+
+  it('7. Non-string input: returns error object when input is not a string', () => {
+    const invalidInputs = [null, undefined, 123, {}, [], true];
+    invalidInputs.forEach((input) => {
+      const res = renderEquation(input);
+      expect(res).toEqual({
+        error: true,
+        message: 'Invalid input: LaTeX expression must be a string.'
+      });
+    });
+  });
 });
