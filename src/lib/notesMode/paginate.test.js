@@ -329,6 +329,26 @@ describe('measureHeight caching & performance benchmark', () => {
   });
 });
 
+describe('flowBlocksIntoColumns XSS Sanitization', () => {
+  test('sanitizes malicious XSS payload in blocks during DOM measurement', async () => {
+    window.__xss_executed = false;
+    const maliciousBlock = {
+      id: 'q1-header',
+      type: 'question-header',
+      questionNumber: 1,
+      content: [
+        '<img src="invalid" onerror="window.__xss_executed=true">'
+      ],
+    };
+
+    const result = await flowBlocksIntoColumns([maliciousBlock], { usableHeightPerPage: 225 });
+
+    expect(window.__xss_executed).toBe(false);
+    expect(result.pages.length).toBe(1);
+    expect(result.pages[0].columnA).toEqual(['q1-header']);
+  });
+});
+
 describe('empty items edge cases for pagination functions', () => {
   test('paginate handles empty array, null, and undefined items', async () => {
     const resEmpty = await paginate([], { usableHeightPerPage: 100 });

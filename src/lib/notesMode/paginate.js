@@ -1,5 +1,6 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import DOMPurify from 'dompurify';
 import { NotesBlockRenderer, ContinuationLabel } from '../../components/NotesBlockComponents';
 
 let elementMeasurementCache = new WeakMap();
@@ -189,7 +190,7 @@ export function flowBlocksIntoColumns(blocks = [], options = {}) {
       React.createElement(ContinuationLabel, { questionNumber: 1 })
     );
     const labelDummy = document.createElement('div');
-    labelDummy.innerHTML = labelHtml;
+    labelDummy.innerHTML = DOMPurify.sanitize(labelHtml);
     const labelTarget = labelDummy.firstElementChild || labelDummy;
     if (typeof window !== 'undefined' && window.navigator?.userAgent?.includes('jsdom')) {
       labelTarget.style.height = '8mm';
@@ -202,7 +203,7 @@ export function flowBlocksIntoColumns(blocks = [], options = {}) {
         React.createElement(NotesBlockRenderer, { block, isTopOfColumn: false })
       );
       const dummyEl = document.createElement('div');
-      dummyEl.innerHTML = blockHtml;
+      dummyEl.innerHTML = DOMPurify.sanitize(blockHtml);
       const targetEl = dummyEl.firstElementChild || dummyEl;
 
       if (typeof window !== 'undefined' && window.navigator?.userAgent?.includes('jsdom')) {

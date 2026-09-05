@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import DOMPurify from 'dompurify';
 import { validateNotesJson } from '../lib/notesMode/validateSchema';
 import { measureHeight, paginateRows } from '../lib/notesMode/paginate';
 import { QuestionSolutionCard } from '../components/NotesModeCard';
@@ -134,7 +135,7 @@ export function useNotesToPngConversion({ outputRef } = {}) {
         );
 
         const dummyEl = document.createElement('div');
-        dummyEl.innerHTML = html;
+        dummyEl.innerHTML = DOMPurify.sanitize(html);
 
         const targetElement = dummyEl.firstElementChild || dummyEl;
 
