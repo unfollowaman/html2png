@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { measureHeight, paginate, paginateRows, flowBlocksIntoColumns } from './paginate';
+import { measureHeight, clearMeasurementCache, paginate, paginateRows, flowBlocksIntoColumns } from './paginate';
 
 /**
  * Helper to create a mock DOM element with specified height.
@@ -254,6 +254,78 @@ describe('paginateRows 2-column row packing', () => {
     const res = await paginate(items, { usableHeightPerPage: 100, unit: 'mm' });
     expect(res.pages).toEqual([['p1'], ['p2']]);
     expect(res.overflowItems).toEqual([]);
+  });
+});
+
+describe('measureHeight caching & performance benchmark', () => {
+  beforeEach(() => {
+    clearMeasurementCache();
+  });
+
+  test('measureHeight caches results on repeated calls for the same element', () => {
+    const el = createMockElement(50);
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+
+    const firstH = measureHeight(el, { width: '80mm' }, 'mm');
+    const callsAfterFirst = appendSpy.mock.calls.length;
+
+    const secondH = measureHeight(el, { width: '80mm' }, 'mm');
+    const callsAfterSecond = appendSpy.mock.calls.length;
+
+    expect(firstH).toBeCloseTo(50, 1);
+    expect(secondH).toEqual(firstH);
+    // On the second call, cached result is returned so document.body.appendChild is not invoked again for measurement container
+    expect(callsAfterSecond).toEqual(callsAfterFirst);
+
+    appendSpy.mockRestore();
+  });
+
+  test('measureHeight re-measures when containerCss or unit differs', () => {
+    const el = createMockElement(40);
+    const hMm = measureHeight(el, { width: '80mm' }, 'mm');
+    const hPx = measureHeight(el, { width: '80mm' }, 'px');
+
+    expect(hMm).toBeCloseTo(40, 1);
+    expect(hPx).toBeGreaterThan(hMm);
+  });
+
+  test('clearMeasurementCache invalidates element cache', () => {
+    const el = createMockElement(35);
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+
+    measureHeight(el, { width: '80mm' }, 'mm');
+    const count1 = appendSpy.mock.calls.length;
+
+    clearMeasurementCache(el);
+    measureHeight(el, { width: '80mm' }, 'mm');
+    const count2 = appendSpy.mock.calls.length;
+
+    expect(count2).toBeGreaterThan(count1);
+
+    appendSpy.mockRestore();
+  });
+
+  test('benchmark measureHeight performance: cached vs uncached for 100 elements', () => {
+    const items = Array.from({ length: 100 }, (_, i) => createMockElement(20 + (i % 10)));
+
+    // Uncached measurement pass
+    clearMeasurementCache();
+    const t0 = performance.now();
+    for (const el of items) {
+      measureHeight(el, { width: '80mm' }, 'mm');
+    }
+    const durationUncached = performance.now() - t0;
+
+    // Cached measurement pass (measuring same 100 elements again)
+    const t1 = performance.now();
+    for (const el of items) {
+      measureHeight(el, { width: '80mm' }, 'mm');
+    }
+    const durationCached = performance.now() - t1;
+
+    console.log(`[Benchmark measureHeight] 100 elements -> Uncached: ${durationUncached.toFixed(2)}ms, Cached: ${durationCached.toFixed(2)}ms`);
+
+    expect(durationCached).toBeLessThanOrEqual(durationUncached);
   });
 });
 

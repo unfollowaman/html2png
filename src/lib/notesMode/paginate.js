@@ -2,6 +2,33 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { NotesBlockRenderer, ContinuationLabel } from '../../components/NotesBlockComponents';
 
+let elementMeasurementCache = new WeakMap();
+let cachedPxPerMm = null;
+
+/**
+ * Clears the measurement cache for a specific element or completely resets the cache if no element is provided.
+ *
+ * @param {HTMLElement} [element] - Optional element to remove from cache.
+ */
+export function clearMeasurementCache(element) {
+  if (element && typeof element === 'object') {
+    elementMeasurementCache.delete(element);
+  } else {
+    elementMeasurementCache = new WeakMap();
+    cachedPxPerMm = null;
+  }
+}
+
+/**
+ * Serializes container CSS and unit into a cache key string.
+ */
+function getCacheKey(containerCss, unit) {
+  const cssKey = containerCss
+    ? (typeof containerCss === 'object' ? JSON.stringify(containerCss) : String(containerCss))
+    : '';
+  return `${cssKey}|${unit}`;
+}
+
 /**
  * Helper to convert DOM pixel measurements to millimeters using a 1mm DOM calibration node.
  *
@@ -9,6 +36,10 @@ import { NotesBlockRenderer, ContinuationLabel } from '../../components/NotesBlo
  * @returns {number} The height of 1mm in pixels.
  */
 function getPixelsPerMm(container) {
+  if (cachedPxPerMm !== null && cachedPxPerMm > 0) {
+    return cachedPxPerMm;
+  }
+
   const calib = document.createElement('div');
   calib.style.height = '1mm';
   calib.style.padding = '0';
@@ -20,17 +51,16 @@ function getPixelsPerMm(container) {
 
   // Fallback to standard 96 DPI conversion (96px / 25.4mm) if measurement yields 0 or NaN
   if (!pxPerMm || isNaN(pxPerMm) || pxPerMm <= 0) {
-    return 96 / 25.4;
+    cachedPxPerMm = 96 / 25.4;
+    return cachedPxPerMm;
   }
+  cachedPxPerMm = pxPerMm;
   return pxPerMm;
 }
 
 /**
  * Measures the height of a given DOM element when rendered inside a hidden off-screen container.
- *
- * Note: Unit returned is 'mm' by default (or 'px' if specified via unit option).
- * Conversion from pixels to millimeters is computed dynamically via a 1mm DOM reference node
- * inside the measurement container to match exact CSS/device resolution.
+ * Caches measurement results by element reference, containerCss, and unit to avoid repeated DOM layout thrashing.
  *
  * @param {HTMLElement} element - The DOM element to measure.
  * @param {Object|string} [containerCss] - Optional CSS properties (object) or style string to apply to the container.
@@ -38,6 +68,18 @@ function getPixelsPerMm(container) {
  * @returns {number} Measured height in specified unit.
  */
 export function measureHeight(element, containerCss = null, unit = 'mm') {
+  if (!element) return 0;
+
+  const isObjectElement = typeof element === 'object';
+  const cacheKey = getCacheKey(containerCss, unit);
+
+  if (isObjectElement && elementMeasurementCache.has(element)) {
+    const elCache = elementMeasurementCache.get(element);
+    if (elCache.has(cacheKey)) {
+      return elCache.get(cacheKey);
+    }
+  }
+
   const container = document.createElement('div');
   container.style.position = 'absolute';
   container.style.visibility = 'hidden';
@@ -83,11 +125,18 @@ export function measureHeight(element, containerCss = null, unit = 'mm') {
     document.body.removeChild(container);
   }
 
-  if (unit === 'mm') {
-    return heightPx / pxPerMm;
+  const resultHeight = unit === 'mm' ? heightPx / pxPerMm : heightPx;
+
+  if (isObjectElement) {
+    let elCache = elementMeasurementCache.get(element);
+    if (!elCache) {
+      elCache = new Map();
+      elementMeasurementCache.set(element, elCache);
+    }
+    elCache.set(cacheKey, resultHeight);
   }
 
-  return heightPx;
+  return resultHeight;
 }
 
 /**
