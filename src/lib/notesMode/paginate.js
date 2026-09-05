@@ -334,115 +334,88 @@ export function paginate(items = [], options = {}) {
 }
 
 /**
- * Paginates an array of DOM items into pages formatted as a multi-column grid per page (e.g. 2 columns).
- * Row height is determined as Math.max(itemHeightsInRow).
+ * Filters items and pairs eligible items into row objects.
+ * Handles oversized items by pushing their IDs to overflowItems.
  *
- * Handle oversized edge cases:
- * - If an item's individual height > usableHeightPerPage, it is placed in overflowItems alone.
- * - If pairing two adjacent items in sequence would cause row height > usableHeightPerPage
- *   because of an oversized second item alone, break pairing so the second item goes to overflowItems
- *   and the first item is re-paired with the following item in sequence.
- *
- * @param {Array<{id: string|number, element: HTMLElement}>} items - List of items with unique id and renderable DOM element.
- * @param {Object} options - Pagination options.
- * @param {number} options.usableHeightPerPage - Usable height per page in target unit.
- * @param {number} [options.columnsPerRow=2] - Number of columns per grid row.
- * @param {number} [options.rowGap=3.7] - Vertical gap between grid rows in target unit (e.g., 14px in mm ~ 3.7mm).
- * @param {string} [options.unit='mm'] - Unit ('mm' or 'px').
- * @param {Object|string} [options.containerCss] - CSS options for measurement.
- * @param {number} [options.chunkSize=5] - Execution chunk size.
- * @param {Function} [options.onProgress] - Callback on chunk progress.
- * @returns {Promise<{pages: Array<Array<string|number>>, overflowItems: Array<string|number>}>}
+ * @param {Array<{id: string|number, height: number, rawItem: Object}>} measuredItems
+ * @param {number} usableHeightPerPage
+ * @param {number} columnsPerRow
+ * @returns {{ rows: Array<{items: Array<Object>, height: number}>, overflowItems: Array<string|number> }}
  */
-export function paginateRows(items = [], options = {}) {
-  const {
-    usableHeightPerPage,
-    columnsPerRow = 2,
-    rowGap = 3.7,
-    unit = 'mm',
-    containerCss = null,
-    chunkSize = 5,
-    onProgress = null,
-  } = options;
+function buildRowsFromMeasuredItems(measuredItems, usableHeightPerPage, columnsPerRow) {
+  const overflowItems = [];
+  const eligibleItems = [];
 
-  if (typeof usableHeightPerPage !== 'number' || usableHeightPerPage <= 0) {
-    throw new Error('paginateRows: usableHeightPerPage must be a positive number');
+  // Filter individually oversized items first
+  for (const item of measuredItems) {
+    if (item.height > usableHeightPerPage) {
+      overflowItems.push(item.id);
+    } else {
+      eligibleItems.push(item);
+    }
   }
 
+  const rows = [];
+  let i = 0;
+  while (i < eligibleItems.length) {
+    if (columnsPerRow === 1 || i === eligibleItems.length - 1) {
+      rows.push({
+        items: [eligibleItems[i]],
+        height: eligibleItems[i].height,
+      });
+      i += 1;
+    } else {
+      const itemA = eligibleItems[i];
+      const itemB = eligibleItems[i + 1];
+      const rowHeight = Math.max(itemA.height, itemB.height);
+
+      if (rowHeight > usableHeightPerPage) {
+        if (itemB.height > usableHeightPerPage) {
+          overflowItems.push(itemB.id);
+          eligibleItems.splice(i + 1, 1);
+          continue;
+        } else if (itemA.height > usableHeightPerPage) {
+          overflowItems.push(itemA.id);
+          eligibleItems.splice(i, 1);
+          continue;
+        }
+      }
+
+      rows.push({
+        items: [itemA, itemB],
+        height: rowHeight,
+      });
+      i += 2;
+    }
+  }
+
+  return { rows, overflowItems };
+}
+
+/**
+ * Asynchronously packs row objects into pages based on the height budget.
+ *
+ * @param {Array<{items: Array<Object>, height: number}>} rows
+ * @param {Object} options
+ * @param {number} options.usableHeightPerPage
+ * @param {number} options.rowGap
+ * @param {number} options.chunkSize
+ * @param {Function} [options.onProgress]
+ * @returns {Promise<Array<Array<string|number>>>}
+ */
+function packRowsIntoPages(rows, { usableHeightPerPage, rowGap, chunkSize, onProgress }) {
   return new Promise((resolve) => {
-    if (!items || items.length === 0) {
-      resolve({ pages: [], overflowItems: [] });
+    if (!rows || rows.length === 0) {
+      resolve([]);
       return;
     }
 
-    const measuredItems = items.map((item) => ({
-      id: item.id,
-      height: measureHeight(item.element, containerCss, unit),
-      rawItem: item,
-    }));
-
     const pages = [];
-    const overflowItems = [];
-    const eligibleItems = [];
-
-    // Filter individually oversized items first
-    for (const item of measuredItems) {
-      if (item.height > usableHeightPerPage) {
-        overflowItems.push(item.id);
-      } else {
-        eligibleItems.push(item);
-      }
-    }
-
-    // Pair items into rows
-    const rows = [];
-    let i = 0;
-    while (i < eligibleItems.length) {
-      if (columnsPerRow === 1 || i === eligibleItems.length - 1) {
-        // Single item in row
-        rows.push({
-          items: [eligibleItems[i]],
-          height: eligibleItems[i].height,
-        });
-        i += 1;
-      } else {
-        // Pair two adjacent items
-        const itemA = eligibleItems[i];
-        const itemB = eligibleItems[i + 1];
-
-        // If itemB alone would be oversized (though already checked) or pairing creates a row > budget
-        // because itemB is oversized on its own, handle gracefully.
-        const rowHeight = Math.max(itemA.height, itemB.height);
-
-        if (rowHeight > usableHeightPerPage) {
-          // If itemB is the one causing overflow (> usable budget), remove itemB to overflowItems,
-          // and attempt to pair itemA with itemB's successor (i+2) on next iteration.
-          if (itemB.height > usableHeightPerPage) {
-            overflowItems.push(itemB.id);
-            eligibleItems.splice(i + 1, 1);
-            // Re-eval i on next loop with new eligibleItems[i+1]
-            continue;
-          } else if (itemA.height > usableHeightPerPage) {
-            overflowItems.push(itemA.id);
-            eligibleItems.splice(i, 1);
-            continue;
-          }
-        }
-
-        rows.push({
-          items: [itemA, itemB],
-          height: rowHeight,
-        });
-        i += 2;
-      }
-    }
-
-    // Pack rows into pages
     const EPSILON = 1e-5;
     let currentPageItemIds = [];
     let currentHeight = 0;
-
     let rowIndex = 0;
+
     const processChunk = () => {
       const end = Math.min(rowIndex + chunkSize, rows.length);
 
@@ -472,10 +445,72 @@ export function paginateRows(items = [], options = {}) {
         if (currentPageItemIds.length > 0) {
           pages.push(currentPageItemIds);
         }
-        resolve({ pages, overflowItems });
+        resolve(pages);
       }
     };
 
     scheduleNextTick(processChunk);
   });
+}
+
+/**
+ * Paginates an array of DOM items into pages formatted as a multi-column grid per page (e.g. 2 columns).
+ * Row height is determined as Math.max(itemHeightsInRow).
+ *
+ * Handle oversized edge cases:
+ * - If an item's individual height > usableHeightPerPage, it is placed in overflowItems alone.
+ * - If pairing two adjacent items in sequence would cause row height > usableHeightPerPage
+ *   because of an oversized second item alone, break pairing so the second item goes to overflowItems
+ *   and the first item is re-paired with the following item in sequence.
+ *
+ * @param {Array<{id: string|number, element: HTMLElement}>} items - List of items with unique id and renderable DOM element.
+ * @param {Object} options - Pagination options.
+ * @param {number} options.usableHeightPerPage - Usable height per page in target unit.
+ * @param {number} [options.columnsPerRow=2] - Number of columns per grid row.
+ * @param {number} [options.rowGap=3.7] - Vertical gap between grid rows in target unit (e.g., 14px in mm ~ 3.7mm).
+ * @param {string} [options.unit='mm'] - Unit ('mm' or 'px').
+ * @param {Object|string} [options.containerCss] - CSS options for measurement.
+ * @param {number} [options.chunkSize=5] - Execution chunk size.
+ * @param {Function} [options.onProgress] - Callback on chunk progress.
+ * @returns {Promise<{pages: Array<Array<string|number>>, overflowItems: Array<string|number>}>}
+ */
+export async function paginateRows(items = [], options = {}) {
+  const {
+    usableHeightPerPage,
+    columnsPerRow = 2,
+    rowGap = 3.7,
+    unit = 'mm',
+    containerCss = null,
+    chunkSize = 5,
+    onProgress = null,
+  } = options;
+
+  if (typeof usableHeightPerPage !== 'number' || usableHeightPerPage <= 0) {
+    throw new Error('paginateRows: usableHeightPerPage must be a positive number');
+  }
+
+  if (!items || items.length === 0) {
+    return { pages: [], overflowItems: [] };
+  }
+
+  const measuredItems = items.map((item) => ({
+    id: item.id,
+    height: measureHeight(item.element, containerCss, unit),
+    rawItem: item,
+  }));
+
+  const { rows, overflowItems } = buildRowsFromMeasuredItems(
+    measuredItems,
+    usableHeightPerPage,
+    columnsPerRow
+  );
+
+  const pages = await packRowsIntoPages(rows, {
+    usableHeightPerPage,
+    rowGap,
+    chunkSize,
+    onProgress,
+  });
+
+  return { pages, overflowItems };
 }
