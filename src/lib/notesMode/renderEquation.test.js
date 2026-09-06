@@ -60,4 +60,12 @@ describe('renderEquation LaTeX-to-rendered-equation utility', () => {
       });
     });
   });
+
+  it('8. Sanitizes HTML output with DOMPurify preventing unsanitized HTML/script injection', () => {
+    const res = renderEquation('a + b = c', { displayMode: false });
+    expect(res.error).toBe(false);
+    expect(res.element.innerHTML).not.toContain('<script');
+    expect(res.element.innerHTML).not.toContain('onerror=');
+    expect(res.html).toBe(res.element.innerHTML);
+  });
 });
