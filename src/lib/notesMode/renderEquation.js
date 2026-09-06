@@ -1,4 +1,5 @@
 import katex from 'katex';
+import DOMPurify from 'dompurify';
 import 'katex/dist/katex.min.css';
 
 /**
@@ -20,20 +21,22 @@ export function renderEquation(latex, options = {}) {
   }
 
   try {
-    const html = katex.renderToString(latex, {
+    const rawHtml = katex.renderToString(latex, {
       displayMode,
       throwOnError: true,
       trust: false
     });
 
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+
     const container = document.createElement('span');
     container.className = displayMode ? 'rendered-equation display-equation' : 'rendered-equation inline-equation';
-    container.innerHTML = html;
+    container.innerHTML = cleanHtml;
 
     return {
       error: false,
       element: container,
-      html
+      html: cleanHtml
     };
   } catch (err) {
     return {
