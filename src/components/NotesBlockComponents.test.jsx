@@ -46,4 +46,15 @@ describe('NotesBlockComponents', () => {
     expect(html).toContain('solution-rest-block');
     expect(html).not.toContain('continued');
   });
+
+  test('sanitizes equation HTML rendered in content items', () => {
+    const block = {
+      type: 'solution-first',
+      questionNumber: 1,
+      element: { type: 'equation', latex: 'x^2 + y^2 = r^2' }
+    };
+    const html = renderToStaticMarkup(<NotesBlockRenderer block={block} isTopOfColumn={false} />);
+    expect(html).toContain('katex');
+    expect(html).not.toContain('onerror=');
+  });
 });
