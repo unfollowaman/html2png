@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import katex from 'katex';
 import { renderEquation } from './renderEquation';
 
 describe('renderEquation LaTeX-to-rendered-equation utility', () => {
@@ -67,5 +68,19 @@ describe('renderEquation LaTeX-to-rendered-equation utility', () => {
     expect(res.element.innerHTML).not.toContain('<script');
     expect(res.element.innerHTML).not.toContain('onerror=');
     expect(res.html).toBe(res.element.innerHTML);
+  });
+
+  it('9. Fallback error message: returns "LaTeX parsing error." when thrown error lacks a message property', () => {
+    const spy = vi.spyOn(katex, 'renderToString').mockImplementationOnce(() => {
+      throw {};
+    });
+
+    const res = renderEquation('x + y');
+    expect(res).toEqual({
+      error: true,
+      message: 'LaTeX parsing error.'
+    });
+
+    spy.mockRestore();
   });
 });
